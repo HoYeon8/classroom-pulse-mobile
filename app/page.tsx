@@ -5,25 +5,31 @@ import {
   BookOpen,
   CalendarDays,
   Check,
+  CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   CircleEllipsis,
   Clock3,
+  Download,
   FileSpreadsheet,
   GraduationCap,
   ImagePlus,
   LayoutDashboard,
+  ListChecks,
   Megaphone,
   MessageCircleMore,
   MoreHorizontal,
   PencilLine,
   Plus,
   Search,
+  Send,
   Settings2,
   Sparkles,
   Table2,
+  Trash2,
   UploadCloud,
+  UserPlus,
   UserRound,
   UsersRound,
   X,
@@ -49,6 +55,75 @@ type Lesson = {
   end: string;
 };
 type ImportRow = Omit<Lesson, "id" | "start" | "end">;
+type ClassStats = {
+  arrived: number;
+  leave: number;
+  homeworkRate: number;
+};
+type TodoItem = {
+  id: string;
+  classId: string;
+  title: string;
+  detail: string;
+  due: string;
+  done: boolean;
+};
+type StudentRecord = {
+  id: string;
+  classId: string;
+  name: string;
+  note: string;
+  tag: string;
+  positive?: boolean;
+};
+type ChatThread = {
+  id: string;
+  classId: string;
+  name: string;
+  message: string;
+  time: string;
+  unread: number;
+  avatar: string;
+  tone: string;
+  category: "parent" | "group" | "receipt";
+  replies: string[];
+};
+type ClassEvent = {
+  id: string;
+  classId: string;
+  date: string;
+  weekday: string;
+  title: string;
+  detail: string;
+  status: string;
+};
+type DutyInfo = {
+  group: string;
+  leader: string;
+  members: number;
+};
+type QuickActionKey = "attendance" | "homework" | "notice" | "apps";
+type PanelState =
+  | { type: "search" }
+  | { type: "notifications" }
+  | { type: "report" }
+  | { type: "quick-settings" }
+  | { type: "attendance" }
+  | { type: "homework" }
+  | { type: "notice" }
+  | { type: "apps" }
+  | { type: "todos"; todoId?: string }
+  | { type: "student"; studentId?: string }
+  | { type: "analysis"; title: string; description: string }
+  | { type: "conversation"; threadId: string }
+  | { type: "compose" }
+  | { type: "duty" }
+  | { type: "event"; eventId?: string }
+  | { type: "seating" }
+  | { type: "album" }
+  | { type: "lesson"; lessonId?: string; weekday?: number; period?: number }
+  | { type: "schedule-rules" }
+  | { type: "new-class" };
 
 const weekdays = ["周一", "周二", "周三", "周四", "周五"];
 const periodTimes = [
@@ -114,6 +189,152 @@ const initialLessons: Lesson[] = lessonSeed.map((lesson, index) => ({
   start: periodTimes[lesson.period - 1][0],
   end: periodTimes[lesson.period - 1][1],
 }));
+
+const initialStats: Record<string, ClassStats> = Object.fromEntries(
+  initialClasses.map((item) => [
+    item.id,
+    { arrived: Math.max(item.students - 1, 0), leave: 1, homeworkRate: 96 },
+  ]),
+);
+
+const initialTodos: TodoItem[] = [
+  {
+    id: "todo-1",
+    classId: "c1",
+    title: "批改《分数加减法》课堂练习",
+    detail: "还剩 12 份未批改",
+    due: "今天 16:30",
+    done: false,
+  },
+  {
+    id: "todo-2",
+    classId: "c1",
+    title: "线上家长会",
+    detail: "腾讯会议 · 提前 10 分钟进入",
+    due: "周五 19:30",
+    done: false,
+  },
+  {
+    id: "todo-3",
+    classId: "c2",
+    title: "整理单元测验成绩",
+    detail: "待录入 8 份",
+    due: "明天 12:00",
+    done: false,
+  },
+];
+
+const initialStudents: StudentRecord[] = [
+  { id: "student-1", classId: "c1", name: "林子涵", note: "计算题正确率连续下降", tag: "需关注" },
+  { id: "student-2", classId: "c1", name: "李欣怡", note: "2 项作业待补交", tag: "待跟进" },
+  {
+    id: "student-3",
+    classId: "c1",
+    name: "陈嘉树",
+    note: "应用题进步明显",
+    tag: "有进步",
+    positive: true,
+  },
+];
+
+const initialThreads: ChatThread[] = [
+  {
+    id: "thread-1",
+    classId: "c1",
+    name: "李欣怡妈妈",
+    time: "10:24",
+    message: "严老师您好，欣怡今天的作业晚一点补交……",
+    unread: 2,
+    avatar: "李",
+    tone: "coral",
+    category: "parent",
+    replies: [],
+  },
+  {
+    id: "thread-2",
+    classId: "c1",
+    name: "林子涵爸爸",
+    time: "昨天",
+    message: "好的，谢谢老师的耐心指导！",
+    unread: 0,
+    avatar: "林",
+    tone: "blue",
+    category: "parent",
+    replies: [],
+  },
+  {
+    id: "thread-3",
+    classId: "c1",
+    name: "五年级数学教研组",
+    time: "昨天",
+    message: "王老师：[文件] 期末复习计划初稿.xlsx",
+    unread: 1,
+    avatar: "数",
+    tone: "green",
+    category: "group",
+    replies: [],
+  },
+  {
+    id: "thread-4",
+    classId: "c1",
+    name: "春游通知回执",
+    time: "周二",
+    message: "已收 35 份，还差 7 份",
+    unread: 0,
+    avatar: "回",
+    tone: "sand",
+    category: "receipt",
+    replies: [],
+  },
+];
+
+const initialEvents: ClassEvent[] = [
+  {
+    id: "event-1",
+    classId: "c1",
+    date: "31",
+    weekday: "五",
+    title: "线上家长会",
+    detail: "19:30 · 腾讯会议",
+    status: "重要",
+  },
+  {
+    id: "event-2",
+    classId: "c1",
+    date: "04",
+    weekday: "二",
+    title: "春季研学报名截止",
+    detail: "需收齐 42 份回执",
+    status: "进行中",
+  },
+  {
+    id: "event-3",
+    classId: "c1",
+    date: "08",
+    weekday: "六",
+    title: "班级图书角整理",
+    detail: "第三小组负责",
+    status: "待开始",
+  },
+];
+
+const initialDuty: Record<string, DutyInfo> = {
+  c1: { group: "第三小组", leader: "陈嘉树", members: 7 },
+  c2: { group: "第二小组", leader: "周梓涵", members: 7 },
+  c3: { group: "第一小组", leader: "林浩然", members: 6 },
+};
+
+const quickActionMeta: Record<
+  QuickActionKey,
+  { icon: typeof Check; label: string; color: string }
+> = {
+  attendance: { icon: Check, label: "考勤点名", color: "green" },
+  homework: { icon: BookOpen, label: "布置作业", color: "orange" },
+  notice: { icon: MessageCircleMore, label: "家校通知", color: "blue" },
+  apps: { icon: CircleEllipsis, label: "更多应用", color: "sand" },
+};
+
+const storageKey = "classroom-pulse-mobile-v2";
 
 const navItems: Array<{
   key: TabKey;
@@ -211,13 +432,104 @@ export default function Home() {
   const [editName, setEditName] = useState("");
   const [importOpen, setImportOpen] = useState(false);
   const [toast, setToast] = useState("");
+  const [panel, setPanel] = useState<PanelState | null>(null);
+  const [stats, setStats] = useState<Record<string, ClassStats>>(initialStats);
+  const [todos, setTodos] = useState<TodoItem[]>(initialTodos);
+  const [students, setStudents] = useState<StudentRecord[]>(initialStudents);
+  const [threads, setThreads] = useState<ChatThread[]>(initialThreads);
+  const [events, setEvents] = useState<ClassEvent[]>(initialEvents);
+  const [duty, setDuty] = useState<Record<string, DutyInfo>>(initialDuty);
+  const [quickActions, setQuickActions] = useState<QuickActionKey[]>([
+    "attendance",
+    "homework",
+    "notice",
+    "apps",
+  ]);
+  const [scheduleKeyword, setScheduleKeyword] = useState("数学");
+  const [storageReady, setStorageReady] = useState(false);
 
   const activeClass = classes.find((item) => item.id === activeClassId) ?? classes[0];
+  const activeStats =
+    stats[activeClass.id] ??
+    ({
+      arrived: Math.max(activeClass.students - 1, 0),
+      leave: 1,
+      homeworkRate: 96,
+    } satisfies ClassStats);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 1000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(storageKey);
+      if (raw) {
+        const saved = JSON.parse(raw) as {
+          classes?: ClassInfo[];
+          activeClassId?: string;
+          lessons?: Lesson[];
+          stats?: Record<string, ClassStats>;
+          todos?: TodoItem[];
+          students?: StudentRecord[];
+          threads?: ChatThread[];
+          events?: ClassEvent[];
+          duty?: Record<string, DutyInfo>;
+          quickActions?: QuickActionKey[];
+          scheduleKeyword?: string;
+        };
+        if (saved.classes?.length) setClasses(saved.classes);
+        if (saved.activeClassId) setActiveClassId(saved.activeClassId);
+        if (saved.lessons?.length) setLessons(saved.lessons);
+        if (saved.stats) setStats(saved.stats);
+        if (saved.todos) setTodos(saved.todos);
+        if (saved.students) setStudents(saved.students);
+        if (saved.threads) setThreads(saved.threads);
+        if (saved.events) setEvents(saved.events);
+        if (saved.duty) setDuty(saved.duty);
+        if (saved.quickActions?.length) setQuickActions(saved.quickActions);
+        if (saved.scheduleKeyword) setScheduleKeyword(saved.scheduleKeyword);
+      }
+    } catch {
+      window.localStorage.removeItem(storageKey);
+    } finally {
+      setStorageReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!storageReady) return;
+    window.localStorage.setItem(
+      storageKey,
+      JSON.stringify({
+        classes,
+        activeClassId,
+        lessons,
+        stats,
+        todos,
+        students,
+        threads,
+        events,
+        duty,
+        quickActions,
+        scheduleKeyword,
+      }),
+    );
+  }, [
+    activeClassId,
+    classes,
+    duty,
+    events,
+    lessons,
+    quickActions,
+    scheduleKeyword,
+    stats,
+    storageReady,
+    students,
+    threads,
+    todos,
+  ]);
 
   useEffect(() => {
     if (!toast) return;
@@ -261,7 +573,7 @@ export default function Home() {
                 className="icon-button"
                 type="button"
                 aria-label="搜索"
-                onClick={() => showToast("搜索功能已唤起")}
+                onClick={() => setPanel({ type: "search" })}
               >
                 <Search size={19} />
               </button>
@@ -269,7 +581,7 @@ export default function Home() {
                 className="icon-button has-dot"
                 type="button"
                 aria-label="通知"
-                onClick={() => showToast("你有 3 条新通知")}
+                onClick={() => setPanel({ type: "notifications" })}
               >
                 <Bell size={19} />
               </button>
@@ -289,19 +601,44 @@ export default function Home() {
             <Dashboard
               activeClass={activeClass}
               lessons={lessons}
+              stats={activeStats}
+              todos={todos.filter((item) => item.classId === activeClass.id)}
+              quickActions={quickActions}
               onNavigate={setActiveTab}
+              onOpenPanel={setPanel}
               showToast={showToast}
             />
           )}
-          {activeTab === "study" && <StudyView activeClass={activeClass} showToast={showToast} />}
-          {activeTab === "chat" && <ChatView activeClass={activeClass} showToast={showToast} />}
-          {activeTab === "affairs" && <AffairsView activeClass={activeClass} showToast={showToast} />}
+          {activeTab === "study" && (
+            <StudyView
+              activeClass={activeClass}
+              students={students}
+              onOpenPanel={setPanel}
+            />
+          )}
+          {activeTab === "chat" && (
+            <ChatView
+              activeClass={activeClass}
+              threads={threads}
+              onOpenPanel={setPanel}
+            />
+          )}
+          {activeTab === "affairs" && (
+            <AffairsView
+              activeClass={activeClass}
+              duty={duty[activeClass.id] ?? { group: "第一小组", leader: "待设置", members: 0 }}
+              events={events.filter((item) => item.classId === activeClass.id)}
+              onOpenPanel={setPanel}
+            />
+          )}
           {activeTab === "schedule" && (
             <ScheduleView
               activeClass={activeClass}
               classes={classes}
               lessons={lessons}
+              scheduleKeyword={scheduleKeyword}
               onOpenImport={() => setImportOpen(true)}
+              onOpenPanel={setPanel}
               showToast={showToast}
             />
           )}
@@ -391,7 +728,10 @@ export default function Home() {
               <button
                 className="add-class-button"
                 type="button"
-                onClick={() => showToast("新建班级功能已准备好")}
+                onClick={() => {
+                  setClassSheetOpen(false);
+                  setPanel({ type: "new-class" });
+                }}
               >
                 <Plus size={18} />
                 新建班级
@@ -446,6 +786,137 @@ export default function Home() {
           />
         )}
 
+        {panel && (
+          <ActionPanel
+            key={`${panel.type}-${"lessonId" in panel ? panel.lessonId ?? "new" : ""}-${
+              "eventId" in panel ? panel.eventId ?? "new" : ""
+            }`}
+            panel={panel}
+            activeClass={activeClass}
+            classes={classes}
+            stats={activeStats}
+            todos={todos}
+            students={students}
+            threads={threads}
+            events={events}
+            duty={duty[activeClass.id] ?? { group: "第一小组", leader: "待设置", members: 0 }}
+            lessons={lessons}
+            quickActions={quickActions}
+            scheduleKeyword={scheduleKeyword}
+            onClose={() => setPanel(null)}
+            onOpenPanel={setPanel}
+            onNavigate={(tab) => {
+              setActiveTab(tab);
+              setPanel(null);
+            }}
+            onSaveClass={(classInfo) => {
+              setClasses((items) => [...items, classInfo]);
+              setStats((items) => ({
+                ...items,
+                [classInfo.id]: {
+                  arrived: classInfo.students,
+                  leave: 0,
+                  homeworkRate: 100,
+                },
+              }));
+              setDuty((items) => ({
+                ...items,
+                [classInfo.id]: { group: "第一小组", leader: "待设置", members: 0 },
+              }));
+              setActiveClassId(classInfo.id);
+              setPanel(null);
+              showToast(`已创建 ${classInfo.name}`);
+            }}
+            onSaveStats={(nextStats) => {
+              setStats((items) => ({ ...items, [activeClass.id]: nextStats }));
+              setPanel(null);
+              showToast("班级数据已保存");
+            }}
+            onSaveTodo={(todo) => {
+              setTodos((items) => {
+                const exists = items.some((item) => item.id === todo.id);
+                return exists
+                  ? items.map((item) => (item.id === todo.id ? todo : item))
+                  : [todo, ...items];
+              });
+              setPanel(null);
+              showToast("待办已保存");
+            }}
+            onToggleTodo={(todoId) =>
+              setTodos((items) =>
+                items.map((item) => (item.id === todoId ? { ...item, done: !item.done } : item)),
+              )
+            }
+            onDeleteTodo={(todoId) => {
+              setTodos((items) => items.filter((item) => item.id !== todoId));
+              setPanel(null);
+              showToast("待办已删除");
+            }}
+            onSaveStudent={(student) => {
+              setStudents((items) =>
+                items.some((item) => item.id === student.id)
+                  ? items.map((item) => (item.id === student.id ? student : item))
+                  : [student, ...items],
+              );
+              setPanel(null);
+              showToast("学生记录已保存");
+            }}
+            onSaveThread={(thread) => {
+              setThreads((items) =>
+                items.some((item) => item.id === thread.id)
+                  ? items.map((item) => (item.id === thread.id ? thread : item))
+                  : [thread, ...items],
+              );
+              setPanel(null);
+              showToast("消息已保存");
+            }}
+            onSaveEvent={(event) => {
+              setEvents((items) =>
+                items.some((item) => item.id === event.id)
+                  ? items.map((item) => (item.id === event.id ? event : item))
+                  : [event, ...items],
+              );
+              setPanel(null);
+              showToast("班级事项已保存");
+            }}
+            onDeleteEvent={(eventId) => {
+              setEvents((items) => items.filter((item) => item.id !== eventId));
+              setPanel(null);
+              showToast("事项已删除");
+            }}
+            onSaveDuty={(nextDuty) => {
+              setDuty((items) => ({ ...items, [activeClass.id]: nextDuty }));
+              setPanel(null);
+              showToast("值日安排已保存");
+            }}
+            onSaveLesson={(lesson) => {
+              setLessons((items) =>
+                items.some((item) => item.id === lesson.id)
+                  ? items.map((item) => (item.id === lesson.id ? lesson : item))
+                  : [...items, lesson],
+              );
+              setPanel(null);
+              showToast("课程已保存");
+            }}
+            onDeleteLesson={(lessonId) => {
+              setLessons((items) => items.filter((item) => item.id !== lessonId));
+              setPanel(null);
+              showToast("课程已删除");
+            }}
+            onSaveQuickActions={(actions) => {
+              setQuickActions(actions);
+              setPanel(null);
+              showToast("快捷工作已更新");
+            }}
+            onSaveScheduleKeyword={(keyword) => {
+              setScheduleKeyword(keyword);
+              setPanel(null);
+              showToast("汇总规则已更新");
+            }}
+            showToast={showToast}
+          />
+        )}
+
         {toast && (
           <div className="toast" role="status">
             <Check size={16} />
@@ -460,12 +931,20 @@ export default function Home() {
 function Dashboard({
   activeClass,
   lessons,
+  stats,
+  todos,
+  quickActions,
   onNavigate,
+  onOpenPanel,
   showToast,
 }: {
   activeClass: ClassInfo;
   lessons: Lesson[];
+  stats: ClassStats;
+  todos: TodoItem[];
+  quickActions: QuickActionKey[];
   onNavigate: (tab: TabKey) => void;
+  onOpenPanel: (panel: PanelState) => void;
   showToast: (message: string) => void;
 }) {
   const classLessons = lessons
@@ -494,55 +973,66 @@ function Dashboard({
             <small>班级今日概览</small>
             <strong>{activeClass.name}</strong>
           </div>
-          <button type="button" onClick={() => showToast("班级日报已打开")}>
+          <button type="button" onClick={() => onOpenPanel({ type: "report" })}>
             查看日报
             <ChevronRight size={15} />
           </button>
         </div>
         <div className="metric-row">
           <div>
-            <strong>{activeClass.students - 1}</strong>
+            <strong>{stats.arrived}</strong>
             <span>已到</span>
           </div>
           <i />
           <div>
-            <strong className="warning-number">1</strong>
+            <strong className="warning-number">{stats.leave}</strong>
             <span>请假</span>
           </div>
           <i />
           <div>
-            <strong>96%</strong>
+            <strong>{stats.homeworkRate}%</strong>
             <span>作业提交</span>
           </div>
         </div>
         <div className="hero-note">
           <Sparkles size={15} />
-          <span>班级状态良好，李欣怡的作业仍待提交</span>
+          <span>
+            {stats.leave > 0 ? `${stats.leave} 人请假，` : "全员已到，"}
+            {todos.filter((item) => !item.done).length} 项待办仍需处理
+          </span>
           <ChevronRight size={15} />
         </div>
       </section>
 
-      <SectionTitle title="快捷工作" action="自定义" onAction={() => showToast("快捷工作可自定义")} />
+      <SectionTitle
+        title="快捷工作"
+        action="自定义"
+        onAction={() => onOpenPanel({ type: "quick-settings" })}
+      />
       <section className="quick-grid">
-        {[
-          { icon: Check, label: "考勤点名", sub: "1 人请假", color: "green" },
-          { icon: BookOpen, label: "布置作业", sub: "2 项进行中", color: "orange" },
-          { icon: MessageCircleMore, label: "家校通知", sub: "3 条待回复", color: "blue" },
-          { icon: CircleEllipsis, label: "更多应用", sub: "全部服务", color: "sand" },
-        ].map((item) => {
+        {quickActions.map((key) => {
+          const item = quickActionMeta[key];
           const Icon = item.icon;
+          const sub =
+            key === "attendance"
+              ? `${stats.leave} 人请假`
+              : key === "homework"
+                ? `${todos.filter((todo) => !todo.done).length} 项待办`
+                : key === "notice"
+                  ? "快速发送"
+                  : "全部服务";
           return (
             <button
               className="quick-card"
               type="button"
-              key={item.label}
-              onClick={() => showToast(`${item.label}已打开`)}
+              key={key}
+              onClick={() => onOpenPanel({ type: key })}
             >
               <span className={`quick-icon ${item.color}`}>
                 <Icon size={21} />
               </span>
               <b>{item.label}</b>
-              <small>{item.sub}</small>
+              <small>{sub}</small>
             </button>
           );
         })}
@@ -574,7 +1064,10 @@ function Dashboard({
               {index === 0 ? (
                 <em>下一节</em>
               ) : (
-                <button type="button" onClick={() => showToast("课程详情已打开")}>
+                <button
+                  type="button"
+                  onClick={() => onOpenPanel({ type: "lesson", lessonId: lesson.id })}
+                >
                   <MoreHorizontal size={18} />
                 </button>
               )}
@@ -585,30 +1078,37 @@ function Dashboard({
         )}
       </section>
 
-      <SectionTitle title="待办提醒" action="全部 4 项" onAction={() => showToast("全部待办已展开")} />
+      <SectionTitle
+        title="待办提醒"
+        action={`全部 ${todos.length} 项`}
+        onAction={() => onOpenPanel({ type: "todos" })}
+      />
       <section className="todo-list">
-        <button type="button" onClick={() => showToast("已进入作业批改")}>
-          <span className="todo-date peach">
-            <b>今</b>
-            <small>16:30</small>
-          </span>
-          <span className="todo-copy">
-            <b>批改《分数加减法》课堂练习</b>
-            <small>还剩 12 份未批改</small>
-          </span>
-          <ChevronRight size={18} />
-        </button>
-        <button type="button" onClick={() => showToast("家长会提醒已打开")}>
-          <span className="todo-date mint">
-            <b>31</b>
-            <small>周五</small>
-          </span>
-          <span className="todo-copy">
-            <b>线上家长会</b>
-            <small>五年级 2 班 · 19:30</small>
-          </span>
-          <ChevronRight size={18} />
-        </button>
+        {todos.slice(0, 3).map((todo, index) => (
+          <button
+            type="button"
+            key={todo.id}
+            className={todo.done ? "done" : ""}
+            onClick={() => onOpenPanel({ type: "todos", todoId: todo.id })}
+          >
+            <span className={`todo-date ${index % 2 ? "mint" : "peach"}`}>
+              <b>{todo.done ? "✓" : index === 0 ? "今" : String(index + 1).padStart(2, "0")}</b>
+              <small>{todo.due.replace("今天 ", "")}</small>
+            </span>
+            <span className="todo-copy">
+              <b>{todo.title}</b>
+              <small>{todo.detail}</small>
+            </span>
+            <ChevronRight size={18} />
+          </button>
+        ))}
+        {!todos.length && (
+          <button type="button" onClick={() => onOpenPanel({ type: "homework" })}>
+            <span className="todo-date mint"><Plus size={17} /></span>
+            <span className="todo-copy"><b>新建待办</b><small>今天没有待处理事项</small></span>
+            <ChevronRight size={18} />
+          </button>
+        )}
       </section>
     </div>
   );
@@ -616,11 +1116,15 @@ function Dashboard({
 
 function StudyView({
   activeClass,
-  showToast,
+  students,
+  onOpenPanel,
 }: {
   activeClass: ClassInfo;
-  showToast: (message: string) => void;
+  students: StudentRecord[];
+  onOpenPanel: (panel: PanelState) => void;
 }) {
+  const classStudents = students.filter((student) => student.classId === activeClass.id);
+
   return (
     <div className="page-content inner-page">
       <PageHeading eyebrow={activeClass.name} title="学情管理" subtitle="用数据看见每位学生的进步" />
@@ -640,37 +1144,75 @@ function StudyView({
         </div>
       </section>
       <section className="split-metrics">
-        <button onClick={() => showToast("已查看正确率趋势")}>
+        <button
+          onClick={() =>
+            onOpenPanel({
+              type: "analysis",
+              title: "正确率趋势",
+              description: "近四周平均正确率为 78%、81%、82% 和 84.5%，整体保持上升。",
+            })
+          }
+        >
           <span className="mini-chart bars">
             <i /><i /><i /><i /><i />
           </span>
           <b>84.5%</b>
           <small>平均正确率</small>
         </button>
-        <button onClick={() => showToast("已查看作业完成情况")}>
+        <button
+          onClick={() =>
+            onOpenPanel({
+              type: "analysis",
+              title: "作业完成情况",
+              description: `${activeClass.students} 名学生中有 39 人按时完成，建议重点跟进未提交学生。`,
+            })
+          }
+        >
           <span className="mini-chart line">⌁</span>
           <b>39 / 42</b>
           <small>按时完成人数</small>
         </button>
       </section>
-      <SectionTitle title="重点关注" action="查看全部" onAction={() => showToast("学生列表已展开")} />
+      <SectionTitle
+        title="重点关注"
+        action="新增记录"
+        onAction={() => onOpenPanel({ type: "student" })}
+      />
       <section className="student-list">
-        {[
-          ["林子涵", "计算题正确率连续下降", "需关注", "林"],
-          ["李欣怡", "2 项作业待补交", "待跟进", "李"],
-          ["陈嘉树", "应用题进步明显", "有进步", "陈"],
-        ].map(([name, sub, tag, avatar], index) => (
-          <button key={name} onClick={() => showToast(`${name}的学情档案已打开`)}>
-            <span className={`student-avatar avatar-${index}`}>{avatar}</span>
-            <span>
-              <b>{name}</b>
-              <small>{sub}</small>
+        {classStudents.map((student, index) => (
+          <button
+            key={student.id}
+            onClick={() => onOpenPanel({ type: "student", studentId: student.id })}
+          >
+            <span className={`student-avatar avatar-${index % 3}`}>
+              {student.name.slice(0, 1)}
             </span>
-            <em className={index === 2 ? "positive" : ""}>{tag}</em>
+            <span>
+              <b>{student.name}</b>
+              <small>{student.note}</small>
+            </span>
+            <em className={student.positive ? "positive" : ""}>{student.tag}</em>
           </button>
         ))}
+        {!classStudents.length && (
+          <button onClick={() => onOpenPanel({ type: "student" })}>
+            <span className="student-avatar avatar-0"><UserPlus size={17} /></span>
+            <span><b>添加学生观察记录</b><small>记录表现、进步与跟进事项</small></span>
+            <ChevronRight size={17} />
+          </button>
+        )}
       </section>
-      <SectionTitle title="知识点掌握" action="本单元" onAction={() => showToast("单元筛选已打开")} />
+      <SectionTitle
+        title="知识点掌握"
+        action="查看说明"
+        onAction={() =>
+          onOpenPanel({
+            type: "analysis",
+            title: "知识点掌握",
+            description: "数据可结合课堂练习、作业与测验手动维护；当前展示的是本单元示例汇总。",
+          })
+        }
+      />
       <section className="mastery-card">
         {[
           ["分数的意义", 92],
@@ -694,55 +1236,52 @@ function StudyView({
 
 function ChatView({
   activeClass,
-  showToast,
+  threads,
+  onOpenPanel,
 }: {
   activeClass: ClassInfo;
-  showToast: (message: string) => void;
+  threads: ChatThread[];
+  onOpenPanel: (panel: PanelState) => void;
 }) {
+  const [category, setCategory] = useState<ChatThread["category"]>("parent");
+  const visibleThreads = threads.filter(
+    (thread) => thread.classId === activeClass.id && thread.category === category,
+  );
+  const unreadCount = (nextCategory: ChatThread["category"]) =>
+    threads
+      .filter((thread) => thread.classId === activeClass.id && thread.category === nextCategory)
+      .reduce((total, thread) => total + thread.unread, 0);
+
   return (
     <div className="page-content inner-page">
       <PageHeading eyebrow={activeClass.name} title="沟通中心" subtitle="重要消息，一处集中处理" />
       <div className="segmented-control">
-        <button className="active">家校沟通 <i>3</i></button>
-        <button onClick={() => showToast("班级群组已切换")}>班级群组</button>
-        <button onClick={() => showToast("通知回执已切换")}>通知回执</button>
+        <button
+          className={category === "parent" ? "active" : ""}
+          onClick={() => setCategory("parent")}
+        >
+          家校沟通 {unreadCount("parent") > 0 && <i>{unreadCount("parent")}</i>}
+        </button>
+        <button
+          className={category === "group" ? "active" : ""}
+          onClick={() => setCategory("group")}
+        >
+          班级群组 {unreadCount("group") > 0 && <i>{unreadCount("group")}</i>}
+        </button>
+        <button
+          className={category === "receipt" ? "active" : ""}
+          onClick={() => setCategory("receipt")}
+        >
+          通知回执
+        </button>
       </div>
       <section className="message-list">
-        {[
-          {
-            name: "李欣怡妈妈",
-            time: "10:24",
-            message: "严老师您好，欣怡今天的作业晚一点补交……",
-            unread: 2,
-            avatar: "李",
-            tone: "coral",
-          },
-          {
-            name: "林子涵爸爸",
-            time: "昨天",
-            message: "好的，谢谢老师的耐心指导！",
-            unread: 0,
-            avatar: "林",
-            tone: "blue",
-          },
-          {
-            name: "五年级数学教研组",
-            time: "昨天",
-            message: "王老师：[文件] 期末复习计划初稿.xlsx",
-            unread: 1,
-            avatar: "数",
-            tone: "green",
-          },
-          {
-            name: "陈嘉树妈妈",
-            time: "周二",
-            message: "这周孩子做题主动多了，感谢老师鼓励。",
-            unread: 0,
-            avatar: "陈",
-            tone: "sand",
-          },
-        ].map((item) => (
-          <button key={item.name} type="button" onClick={() => showToast(`正在打开与${item.name}的对话`)}>
+        {visibleThreads.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => onOpenPanel({ type: "conversation", threadId: item.id })}
+          >
             <span className={`message-avatar ${item.tone}`}>{item.avatar}</span>
             <span className="message-copy">
               <span>
@@ -754,8 +1293,19 @@ function ChatView({
             {item.unread > 0 && <em>{item.unread}</em>}
           </button>
         ))}
+        {!visibleThreads.length && (
+          <div className="empty-list">
+            <MessageCircleMore size={22} />
+            <b>这里还没有消息</b>
+            <small>点击右下角按钮开始一条新沟通</small>
+          </div>
+        )}
       </section>
-      <button className="floating-compose" type="button" onClick={() => showToast("新建消息")}>
+      <button
+        className="floating-compose"
+        type="button"
+        onClick={() => onOpenPanel({ type: "compose" })}
+      >
         <PencilLine size={20} />
       </button>
     </div>
@@ -764,10 +1314,14 @@ function ChatView({
 
 function AffairsView({
   activeClass,
-  showToast,
+  duty,
+  events,
+  onOpenPanel,
 }: {
   activeClass: ClassInfo;
-  showToast: (message: string) => void;
+  duty: DutyInfo;
+  events: ClassEvent[];
+  onOpenPanel: (panel: PanelState) => void;
 }) {
   return (
     <div className="page-content inner-page">
@@ -775,21 +1329,47 @@ function AffairsView({
       <section className="affair-feature">
         <div>
           <span>本周班级值日</span>
-          <h2>第三小组</h2>
-          <p>组长：陈嘉树 · 共 7 人</p>
+          <h2>{duty.group}</h2>
+          <p>组长：{duty.leader} · 共 {duty.members} 人</p>
         </div>
         <span className="broom-graphic">✦</span>
-        <button onClick={() => showToast("值日安排已打开")}>查看安排 <ChevronRight size={15} /></button>
+        <button onClick={() => onOpenPanel({ type: "duty" })}>
+          编辑安排 <ChevronRight size={15} />
+        </button>
       </section>
       <section className="affair-grid">
         {[
-          { icon: Megaphone, title: "班级通知", sub: "2 条进行中", color: "peach" },
-          { icon: CalendarDays, title: "活动报名", sub: "春游 · 35/42", color: "mint" },
-          { icon: UsersRound, title: "座位管理", sub: "上次调整 7天前", color: "lilac" },
-          { icon: BookOpen, title: "班级相册", sub: "本周新增 28 张", color: "cream" },
-        ].map(({ icon: CardIcon, title, sub, color }) => {
+          {
+            icon: Megaphone,
+            title: "班级通知",
+            sub: "快速编辑并发送",
+            color: "peach",
+            panel: { type: "notice" } as PanelState,
+          },
+          {
+            icon: CalendarDays,
+            title: "活动报名",
+            sub: `${events.length} 项班级事项`,
+            color: "mint",
+            panel: { type: "event" } as PanelState,
+          },
+          {
+            icon: UsersRound,
+            title: "座位管理",
+            sub: "记录调整方案",
+            color: "lilac",
+            panel: { type: "seating" } as PanelState,
+          },
+          {
+            icon: BookOpen,
+            title: "班级相册",
+            sub: "添加照片备注",
+            color: "cream",
+            panel: { type: "album" } as PanelState,
+          },
+        ].map(({ icon: CardIcon, title, sub, color, panel }) => {
           return (
-            <button key={title} onClick={() => showToast(`${title}已打开`)}>
+            <button key={title} onClick={() => onOpenPanel(panel)}>
               <span className={`affair-icon ${color}`}><CardIcon size={21} /></span>
               <b>{title}</b>
               <small>{sub}</small>
@@ -798,21 +1378,31 @@ function AffairsView({
           );
         })}
       </section>
-      <SectionTitle title="近期事项" action="新建" onAction={() => showToast("新建班级事项")} />
+      <SectionTitle
+        title="近期事项"
+        action="新建"
+        onAction={() => onOpenPanel({ type: "event" })}
+      />
       <section className="event-list">
-        {[
-          ["31", "五", "线上家长会", "19:30 · 腾讯会议", "重要"],
-          ["04", "二", "春季研学报名截止", "需收齐 42 份回执", "进行中"],
-          ["08", "六", "班级图书角整理", "第三小组负责", "待开始"],
-        ].map(([date, day, title, sub, status], index) => (
-          <button key={title} onClick={() => showToast(`${title}详情已打开`)}>
+        {events.map((event, index) => (
+          <button
+            key={event.id}
+            onClick={() => onOpenPanel({ type: "event", eventId: event.id })}
+          >
             <span className={index === 0 ? "event-date active" : "event-date"}>
-              <b>{date}</b><small>周{day}</small>
+              <b>{event.date}</b><small>周{event.weekday}</small>
             </span>
-            <span><b>{title}</b><small>{sub}</small></span>
-            <em>{status}</em>
+            <span><b>{event.title}</b><small>{event.detail}</small></span>
+            <em>{event.status}</em>
           </button>
         ))}
+        {!events.length && (
+          <button onClick={() => onOpenPanel({ type: "event" })}>
+            <span className="event-date active"><Plus size={18} /></span>
+            <span><b>新建班级事项</b><small>安排活动、提醒或报名</small></span>
+            <ChevronRight size={17} />
+          </button>
+        )}
       </section>
     </div>
   );
@@ -822,13 +1412,17 @@ function ScheduleView({
   activeClass,
   classes,
   lessons,
+  scheduleKeyword,
   onOpenImport,
+  onOpenPanel,
   showToast,
 }: {
   activeClass: ClassInfo;
   classes: ClassInfo[];
   lessons: Lesson[];
+  scheduleKeyword: string;
   onOpenImport: () => void;
+  onOpenPanel: (panel: PanelState) => void;
   showToast: (message: string) => void;
 }) {
   const [view, setView] = useState<"mine" | "class">("mine");
@@ -836,16 +1430,41 @@ function ScheduleView({
   const selectedLessons = useMemo(
     () =>
       (view === "mine"
-        ? lessons.filter((lesson) => lesson.subject.includes("数学"))
+        ? lessons.filter((lesson) => lesson.subject.includes(scheduleKeyword))
         : lessons.filter((lesson) => lesson.classId === activeClass.id)
       ).sort((a, b) => a.period - b.period),
-    [activeClass.id, lessons, view],
+    [activeClass.id, lessons, scheduleKeyword, view],
   );
 
   const lessonAt = (weekday: number, period: number) =>
     selectedLessons.find((lesson) => lesson.weekday === weekday && lesson.period === period);
 
   const getClass = (classId: string) => classes.find((item) => item.id === classId);
+
+  const exportSchedule = () => {
+    const rows = [
+      ["班级", "星期", "节次", "课程", "地点", "开始", "结束"],
+      ...selectedLessons.map((lesson) => [
+        getClass(lesson.classId)?.name ?? lesson.classId,
+        weekdays[lesson.weekday - 1],
+        String(lesson.period),
+        lesson.subject,
+        lesson.room,
+        lesson.start,
+        lesson.end,
+      ]),
+    ];
+    const csv = `\uFEFF${rows
+      .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(","))
+      .join("\n")}`;
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${view === "mine" ? "我的数学课表" : activeClass.name}-课表.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    showToast("课表文件已生成");
+  };
 
   return (
     <div className="page-content inner-page schedule-page">
@@ -885,9 +1504,10 @@ function ScheduleView({
         <div className="smart-note">
           <span><Sparkles size={16} /></span>
           <p>
-            已从 <b>{classes.length} 个班级</b> 自动汇总 {selectedLessons.length} 节数学课
+            已从 <b>{classes.length} 个班级</b> 自动汇总 {selectedLessons.length} 节
+            {scheduleKeyword}课
           </p>
-          <button onClick={() => showToast("汇总规则：课程名称包含“数学”")}>
+          <button onClick={() => onOpenPanel({ type: "schedule-rules" })}>
             <Settings2 size={16} />
           </button>
         </div>
@@ -918,9 +1538,18 @@ function ScheduleView({
                     key={weekday}
                     className={lesson ? `lesson-cell ${subjectClass[lesson.subject] ?? "default"}` : "lesson-cell empty"}
                     type="button"
+                    aria-label={
+                      lesson
+                        ? `编辑${weekdays[weekday - 1]}第${period}节${lesson.subject}`
+                        : `新增${weekdays[weekday - 1]}第${period}节课程`
+                    }
                     onClick={() =>
-                      lesson &&
-                      showToast(`${weekdays[weekday - 1]}第 ${period} 节 · ${lesson.subject} · ${lesson.room}`)
+                      onOpenPanel({
+                        type: "lesson",
+                        lessonId: lesson?.id,
+                        weekday,
+                        period,
+                      })
                     }
                   >
                     {lesson && (
@@ -940,10 +1569,819 @@ function ScheduleView({
         <span><i className="math" /> 数学</span>
         <span><i className="chinese" /> 语文</span>
         <span><i className="english" /> 英语</span>
-        <button onClick={() => showToast("课表可导出为 PNG 或 Excel")}>
-          导出课表
+        <button onClick={exportSchedule}>
+          <Download size={11} /> 导出 CSV
         </button>
       </div>
+    </div>
+  );
+}
+
+function ActionPanel({
+  panel,
+  activeClass,
+  classes,
+  stats,
+  todos,
+  students,
+  threads,
+  events,
+  duty,
+  lessons,
+  quickActions,
+  scheduleKeyword,
+  onClose,
+  onOpenPanel,
+  onNavigate,
+  onSaveClass,
+  onSaveStats,
+  onSaveTodo,
+  onToggleTodo,
+  onDeleteTodo,
+  onSaveStudent,
+  onSaveThread,
+  onSaveEvent,
+  onDeleteEvent,
+  onSaveDuty,
+  onSaveLesson,
+  onDeleteLesson,
+  onSaveQuickActions,
+  onSaveScheduleKeyword,
+  showToast,
+}: {
+  panel: PanelState;
+  activeClass: ClassInfo;
+  classes: ClassInfo[];
+  stats: ClassStats;
+  todos: TodoItem[];
+  students: StudentRecord[];
+  threads: ChatThread[];
+  events: ClassEvent[];
+  duty: DutyInfo;
+  lessons: Lesson[];
+  quickActions: QuickActionKey[];
+  scheduleKeyword: string;
+  onClose: () => void;
+  onOpenPanel: (panel: PanelState) => void;
+  onNavigate: (tab: TabKey) => void;
+  onSaveClass: (classInfo: ClassInfo) => void;
+  onSaveStats: (stats: ClassStats) => void;
+  onSaveTodo: (todo: TodoItem) => void;
+  onToggleTodo: (todoId: string) => void;
+  onDeleteTodo: (todoId: string) => void;
+  onSaveStudent: (student: StudentRecord) => void;
+  onSaveThread: (thread: ChatThread) => void;
+  onSaveEvent: (event: ClassEvent) => void;
+  onDeleteEvent: (eventId: string) => void;
+  onSaveDuty: (duty: DutyInfo) => void;
+  onSaveLesson: (lesson: Lesson) => void;
+  onDeleteLesson: (lessonId: string) => void;
+  onSaveQuickActions: (actions: QuickActionKey[]) => void;
+  onSaveScheduleKeyword: (keyword: string) => void;
+  showToast: (message: string) => void;
+}) {
+  const editingTodo =
+    panel.type === "todos" && panel.todoId
+      ? todos.find((item) => item.id === panel.todoId)
+      : undefined;
+  const editingStudent =
+    panel.type === "student" && panel.studentId
+      ? students.find((item) => item.id === panel.studentId)
+      : undefined;
+  const editingThread =
+    panel.type === "conversation"
+      ? threads.find((item) => item.id === panel.threadId)
+      : undefined;
+  const editingEvent =
+    panel.type === "event" && panel.eventId
+      ? events.find((item) => item.id === panel.eventId)
+      : undefined;
+  const editingLesson =
+    panel.type === "lesson" && panel.lessonId
+      ? lessons.find((item) => item.id === panel.lessonId)
+      : undefined;
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [arrived, setArrived] = useState(stats.arrived);
+  const [leave, setLeave] = useState(stats.leave);
+  const [homeworkRate, setHomeworkRate] = useState(stats.homeworkRate);
+  const [className, setClassName] = useState("");
+  const [classGrade, setClassGrade] = useState("2026 春季");
+  const [classStudents, setClassStudents] = useState(40);
+  const [todoTitle, setTodoTitle] = useState(editingTodo?.title ?? "");
+  const [todoDetail, setTodoDetail] = useState(editingTodo?.detail ?? "");
+  const [todoDue, setTodoDue] = useState(editingTodo?.due ?? "今天 17:00");
+  const [todoDone, setTodoDone] = useState(editingTodo?.done ?? false);
+  const [studentName, setStudentName] = useState(editingStudent?.name ?? "");
+  const [studentNote, setStudentNote] = useState(editingStudent?.note ?? "");
+  const [studentTag, setStudentTag] = useState(editingStudent?.tag ?? "需关注");
+  const [studentPositive, setStudentPositive] = useState(editingStudent?.positive ?? false);
+  const [recipient, setRecipient] = useState("");
+  const [message, setMessage] = useState("");
+  const [messageCategory, setMessageCategory] =
+    useState<ChatThread["category"]>("parent");
+  const [reply, setReply] = useState("");
+  const [eventDate, setEventDate] = useState(editingEvent?.date ?? "01");
+  const [eventWeekday, setEventWeekday] = useState(editingEvent?.weekday ?? "一");
+  const [eventTitle, setEventTitle] = useState(editingEvent?.title ?? "");
+  const [eventDetail, setEventDetail] = useState(editingEvent?.detail ?? "");
+  const [eventStatus, setEventStatus] = useState(editingEvent?.status ?? "待开始");
+  const [dutyGroup, setDutyGroup] = useState(duty.group);
+  const [dutyLeader, setDutyLeader] = useState(duty.leader);
+  const [dutyMembers, setDutyMembers] = useState(duty.members);
+  const [lessonClassId, setLessonClassId] = useState(
+    editingLesson?.classId ?? activeClass.id,
+  );
+  const [lessonWeekday, setLessonWeekday] = useState(
+    editingLesson?.weekday ?? (panel.type === "lesson" ? panel.weekday ?? 1 : 1),
+  );
+  const [lessonPeriod, setLessonPeriod] = useState(
+    editingLesson?.period ?? (panel.type === "lesson" ? panel.period ?? 1 : 1),
+  );
+  const [lessonSubject, setLessonSubject] = useState(editingLesson?.subject ?? "数学");
+  const [lessonRoom, setLessonRoom] = useState(editingLesson?.room ?? activeClass.name);
+  const [selectedQuick, setSelectedQuick] = useState<QuickActionKey[]>(quickActions);
+  const [keyword, setKeyword] = useState(scheduleKeyword);
+  const [featureNote, setFeatureNote] = useState("");
+  const [albumFileName, setAlbumFileName] = useState("");
+
+  useEffect(() => {
+    if (!["seating", "album", "analysis"].includes(panel.type)) return;
+    const suffix = panel.type === "analysis" ? panel.title : panel.type;
+    setFeatureNote(
+      window.localStorage.getItem(`${storageKey}-note-${activeClass.id}-${suffix}`) ?? "",
+    );
+  }, [activeClass.id, panel]);
+
+  const panelTitles: Record<PanelState["type"], string> = {
+    search: "搜索功能",
+    notifications: "通知中心",
+    report: "班级日报",
+    "quick-settings": "自定义快捷工作",
+    attendance: "考勤点名",
+    homework: "布置作业",
+    notice: "发送家校通知",
+    apps: "全部应用",
+    todos: editingTodo ? "编辑待办" : "全部待办",
+    student: editingStudent ? "编辑学生记录" : "新增学生记录",
+    analysis: panel.type === "analysis" ? panel.title : "数据分析",
+    conversation: editingThread?.name ?? "对话",
+    compose: "新建消息",
+    duty: "值日安排",
+    event: editingEvent ? "编辑班级事项" : "新建班级事项",
+    seating: "座位管理",
+    album: "班级相册",
+    lesson: editingLesson ? "编辑课程" : "新增课程",
+    "schedule-rules": "数学课表汇总规则",
+    "new-class": "新建班级",
+  };
+
+  const saveFeatureNote = () => {
+    const suffix = panel.type === "analysis" ? panel.title : panel.type;
+    window.localStorage.setItem(
+      `${storageKey}-note-${activeClass.id}-${suffix}`,
+      featureNote.trim(),
+    );
+    onClose();
+    showToast("自定义内容已保存");
+  };
+
+  const searchEntries: Array<{
+    label: string;
+    description: string;
+    action: () => void;
+  }> = [
+    { label: "考勤点名", description: "修改到校与请假人数", action: () => onOpenPanel({ type: "attendance" }) },
+    { label: "布置作业", description: "创建新的班级待办", action: () => onOpenPanel({ type: "homework" }) },
+    { label: "学生记录", description: "新增或维护学情观察", action: () => onOpenPanel({ type: "student" }) },
+    { label: "家校沟通", description: "发送消息并查看对话", action: () => onNavigate("chat") },
+    { label: "班级事项", description: "新增活动、提醒和报名", action: () => onOpenPanel({ type: "event" }) },
+    { label: "值日安排", description: "修改小组和组长", action: () => onOpenPanel({ type: "duty" }) },
+    { label: "课程表", description: "查看并编辑全部课程", action: () => onNavigate("schedule") },
+    { label: "新建班级", description: "添加另一个任教班级", action: () => onOpenPanel({ type: "new-class" }) },
+  ];
+  const visibleSearchEntries = searchEntries.filter((entry) =>
+    `${entry.label}${entry.description}`.includes(searchQuery.trim()),
+  );
+
+  const classTodos = todos.filter((item) => item.classId === activeClass.id);
+  const unreadThreads = threads.filter(
+    (thread) => thread.classId === activeClass.id && thread.unread > 0,
+  );
+
+  return (
+    <div className="modal-layer" role="presentation" onMouseDown={onClose}>
+      <section
+        className="bottom-sheet action-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label={panelTitles[panel.type]}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="sheet-handle" />
+        <div className="sheet-heading">
+          <div>
+            <p className="eyebrow">{activeClass.name}</p>
+            <h2>{panelTitles[panel.type]}</h2>
+          </div>
+          <button className="icon-button soft" type="button" onClick={onClose} aria-label="关闭">
+            <X size={20} />
+          </button>
+        </div>
+
+        {panel.type === "search" && (
+          <>
+            <label className="search-field">
+              <Search size={18} />
+              <input
+                autoFocus
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="搜索考勤、学生、课表或事项"
+              />
+            </label>
+            <div className="action-list">
+              {visibleSearchEntries.map((entry) => (
+                <button type="button" key={entry.label} onClick={entry.action}>
+                  <span><b>{entry.label}</b><small>{entry.description}</small></span>
+                  <ChevronRight size={17} />
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        {panel.type === "notifications" && (
+          <div className="action-list">
+            {unreadThreads.map((thread) => (
+              <button
+                type="button"
+                key={thread.id}
+                onClick={() => onOpenPanel({ type: "conversation", threadId: thread.id })}
+              >
+                <span>
+                  <b>{thread.name}</b>
+                  <small>{thread.message}</small>
+                </span>
+                <em>{thread.unread}</em>
+              </button>
+            ))}
+            {classTodos.filter((todo) => !todo.done).slice(0, 3).map((todo) => (
+              <button
+                type="button"
+                key={todo.id}
+                onClick={() => onOpenPanel({ type: "todos", todoId: todo.id })}
+              >
+                <span><b>{todo.title}</b><small>{todo.due} · {todo.detail}</small></span>
+                <ChevronRight size={17} />
+              </button>
+            ))}
+            {!unreadThreads.length && !classTodos.some((todo) => !todo.done) && (
+              <div className="empty-list">
+                <CheckCircle2 size={24} />
+                <b>暂时没有新通知</b>
+                <small>所有消息与待办都已处理</small>
+              </div>
+            )}
+          </div>
+        )}
+
+        {(panel.type === "report" || panel.type === "attendance") && (
+          <>
+            <div className="summary-banner">
+              <ListChecks size={19} />
+              <span>
+                <b>{panel.type === "report" ? "今日班级数据" : "修改考勤结果"}</b>
+                <small>保存后工作台会立即同步更新</small>
+              </span>
+            </div>
+            <div className="form-grid three">
+              <label><span>已到</span><input type="number" min={0} value={arrived} onChange={(e) => setArrived(Number(e.target.value))} /></label>
+              <label><span>请假</span><input type="number" min={0} value={leave} onChange={(e) => setLeave(Number(e.target.value))} /></label>
+              <label><span>作业提交率</span><input type="number" min={0} max={100} value={homeworkRate} onChange={(e) => setHomeworkRate(Number(e.target.value))} /></label>
+            </div>
+            <button
+              className="button primary full"
+              type="button"
+              onClick={() =>
+                onSaveStats({
+                  arrived: Math.max(arrived, 0),
+                  leave: Math.max(leave, 0),
+                  homeworkRate: Math.min(Math.max(homeworkRate, 0), 100),
+                })
+              }
+            >
+              保存班级数据
+            </button>
+          </>
+        )}
+
+        {panel.type === "new-class" && (
+          <>
+            <div className="editor-form">
+              <label><span>班级名称</span><input autoFocus value={className} onChange={(e) => setClassName(e.target.value)} placeholder="例如：五年级 3 班" /></label>
+              <label><span>学期</span><input value={classGrade} onChange={(e) => setClassGrade(e.target.value)} /></label>
+              <label><span>学生人数</span><input type="number" min={1} value={classStudents} onChange={(e) => setClassStudents(Number(e.target.value))} /></label>
+            </div>
+            <button
+              className="button primary full"
+              type="button"
+              disabled={!className.trim()}
+              onClick={() =>
+                onSaveClass({
+                  id: `class-${Date.now()}`,
+                  name: className.trim(),
+                  grade: classGrade.trim() || "当前学期",
+                  students: Math.max(classStudents, 1),
+                  accent: ["#315B4B", "#E07A4F", "#5367A9", "#9B6B87"][classes.length % 4],
+                })
+              }
+            >
+              <Plus size={17} /> 创建并切换
+            </button>
+          </>
+        )}
+
+        {panel.type === "quick-settings" && (
+          <>
+            <p className="sheet-description">点击应用可显示或隐藏；使用箭头调整首页顺序。</p>
+            <div className="quick-editor">
+              {(Object.keys(quickActionMeta) as QuickActionKey[]).map((key) => {
+                const item = quickActionMeta[key];
+                const Icon = item.icon;
+                const position = selectedQuick.indexOf(key);
+                const selected = position >= 0;
+                return (
+                  <div key={key} className={selected ? "selected" : ""}>
+                    <button
+                      type="button"
+                      className="quick-toggle"
+                      onClick={() =>
+                        setSelectedQuick((items) =>
+                          items.includes(key)
+                            ? items.filter((itemKey) => itemKey !== key)
+                            : [...items, key],
+                        )
+                      }
+                    >
+                      <span className={`quick-icon ${item.color}`}><Icon size={19} /></span>
+                      <b>{item.label}</b>
+                      <Check size={17} />
+                    </button>
+                    {selected && (
+                      <span className="order-buttons">
+                        <button
+                          type="button"
+                          disabled={position === 0}
+                          onClick={() =>
+                            setSelectedQuick((items) => {
+                              const next = [...items];
+                              [next[position - 1], next[position]] = [next[position], next[position - 1]];
+                              return next;
+                            })
+                          }
+                        >
+                          <ChevronLeft size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={position === selectedQuick.length - 1}
+                          onClick={() =>
+                            setSelectedQuick((items) => {
+                              const next = [...items];
+                              [next[position], next[position + 1]] = [next[position + 1], next[position]];
+                              return next;
+                            })
+                          }
+                        >
+                          <ChevronRight size={16} />
+                        </button>
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <button
+              className="button primary full"
+              type="button"
+              disabled={!selectedQuick.length}
+              onClick={() => onSaveQuickActions(selectedQuick)}
+            >
+              保存快捷工作
+            </button>
+          </>
+        )}
+
+        {panel.type === "homework" && (
+          <>
+            <div className="editor-form">
+              <label><span>作业或待办名称</span><input autoFocus value={todoTitle} onChange={(e) => setTodoTitle(e.target.value)} placeholder="例如：完成第 8 页练习" /></label>
+              <label><span>说明</span><textarea value={todoDetail} onChange={(e) => setTodoDetail(e.target.value)} placeholder="补充范围、要求或提醒" /></label>
+              <label><span>截止时间</span><input value={todoDue} onChange={(e) => setTodoDue(e.target.value)} placeholder="今天 17:00" /></label>
+            </div>
+            <button
+              className="button primary full"
+              type="button"
+              disabled={!todoTitle.trim()}
+              onClick={() =>
+                onSaveTodo({
+                  id: `todo-${Date.now()}`,
+                  classId: activeClass.id,
+                  title: todoTitle.trim(),
+                  detail: todoDetail.trim() || "暂无补充说明",
+                  due: todoDue.trim() || "待定",
+                  done: false,
+                })
+              }
+            >
+              <Plus size={17} /> 添加到待办
+            </button>
+          </>
+        )}
+
+        {panel.type === "todos" && !editingTodo && (
+          <>
+            <div className="manage-list">
+              {classTodos.map((todo) => (
+                <div key={todo.id} className={todo.done ? "done" : ""}>
+                  <button type="button" className="check-button" onClick={() => onToggleTodo(todo.id)}>
+                    {todo.done ? <CheckCircle2 size={20} /> : <span />}
+                  </button>
+                  <button type="button" className="manage-main" onClick={() => onOpenPanel({ type: "todos", todoId: todo.id })}>
+                    <b>{todo.title}</b><small>{todo.due} · {todo.detail}</small>
+                  </button>
+                  <ChevronRight size={17} />
+                </div>
+              ))}
+            </div>
+            <button className="button primary full" type="button" onClick={() => onOpenPanel({ type: "homework" })}>
+              <Plus size={17} /> 新建待办
+            </button>
+          </>
+        )}
+
+        {panel.type === "todos" && editingTodo && (
+          <>
+            <div className="editor-form">
+              <label><span>名称</span><input value={todoTitle} onChange={(e) => setTodoTitle(e.target.value)} /></label>
+              <label><span>说明</span><textarea value={todoDetail} onChange={(e) => setTodoDetail(e.target.value)} /></label>
+              <label><span>截止时间</span><input value={todoDue} onChange={(e) => setTodoDue(e.target.value)} /></label>
+              <label className="toggle-row">
+                <input type="checkbox" checked={todoDone} onChange={(e) => setTodoDone(e.target.checked)} />
+                <span>标记为已完成</span>
+              </label>
+            </div>
+            <div className="sheet-actions">
+              <button className="button danger" type="button" onClick={() => onDeleteTodo(editingTodo.id)}><Trash2 size={16} /> 删除</button>
+              <button
+                className="button primary"
+                type="button"
+                disabled={!todoTitle.trim()}
+                onClick={() =>
+                  onSaveTodo({
+                    ...editingTodo,
+                    title: todoTitle.trim(),
+                    detail: todoDetail.trim(),
+                    due: todoDue.trim(),
+                    done: todoDone,
+                  })
+                }
+              >
+                保存修改
+              </button>
+            </div>
+          </>
+        )}
+
+        {panel.type === "student" && (
+          <>
+            <div className="editor-form">
+              <label><span>学生姓名</span><input autoFocus value={studentName} onChange={(e) => setStudentName(e.target.value)} /></label>
+              <label><span>观察记录</span><textarea value={studentNote} onChange={(e) => setStudentNote(e.target.value)} placeholder="记录学习表现、进步或需要跟进的情况" /></label>
+              <label><span>标签</span><input value={studentTag} onChange={(e) => setStudentTag(e.target.value)} placeholder="需关注 / 有进步" /></label>
+              <label className="toggle-row">
+                <input type="checkbox" checked={studentPositive} onChange={(e) => setStudentPositive(e.target.checked)} />
+                <span>这是正向进步记录</span>
+              </label>
+            </div>
+            <button
+              className="button primary full"
+              type="button"
+              disabled={!studentName.trim() || !studentNote.trim()}
+              onClick={() =>
+                onSaveStudent({
+                  id: editingStudent?.id ?? `student-${Date.now()}`,
+                  classId: activeClass.id,
+                  name: studentName.trim(),
+                  note: studentNote.trim(),
+                  tag: studentTag.trim() || "记录",
+                  positive: studentPositive,
+                })
+              }
+            >
+              保存学生记录
+            </button>
+          </>
+        )}
+
+        {panel.type === "notice" && (
+          <>
+            <div className="editor-form">
+              <label><span>接收对象</span><input value={recipient} onChange={(e) => setRecipient(e.target.value)} placeholder="例如：全班家长" /></label>
+              <label><span>通知内容</span><textarea autoFocus value={message} onChange={(e) => setMessage(e.target.value)} placeholder="输入需要发送的通知内容" /></label>
+            </div>
+            <button
+              className="button primary full"
+              type="button"
+              disabled={!recipient.trim() || !message.trim()}
+              onClick={() =>
+                onSaveThread({
+                  id: `thread-${Date.now()}`,
+                  classId: activeClass.id,
+                  name: recipient.trim(),
+                  message: message.trim(),
+                  time: "刚刚",
+                  unread: 0,
+                  avatar: recipient.trim().slice(0, 1),
+                  tone: "green",
+                  category: "receipt",
+                  replies: ["通知已发送"],
+                })
+              }
+            >
+              <Send size={17} /> 保存并发送
+            </button>
+          </>
+        )}
+
+        {panel.type === "compose" && (
+          <>
+            <div className="editor-form">
+              <label><span>联系人或群组</span><input autoFocus value={recipient} onChange={(e) => setRecipient(e.target.value)} placeholder="输入家长、学生或群组名称" /></label>
+              <label>
+                <span>消息类型</span>
+                <select value={messageCategory} onChange={(e) => setMessageCategory(e.target.value as ChatThread["category"])}>
+                  <option value="parent">家校沟通</option>
+                  <option value="group">班级群组</option>
+                  <option value="receipt">通知回执</option>
+                </select>
+              </label>
+              <label><span>消息内容</span><textarea value={message} onChange={(e) => setMessage(e.target.value)} /></label>
+            </div>
+            <button
+              className="button primary full"
+              type="button"
+              disabled={!recipient.trim() || !message.trim()}
+              onClick={() =>
+                onSaveThread({
+                  id: `thread-${Date.now()}`,
+                  classId: activeClass.id,
+                  name: recipient.trim(),
+                  message: message.trim(),
+                  time: "刚刚",
+                  unread: 0,
+                  avatar: recipient.trim().slice(0, 1),
+                  tone: "blue",
+                  category: messageCategory,
+                  replies: [],
+                })
+              }
+            >
+              <Send size={17} /> 发送消息
+            </button>
+          </>
+        )}
+
+        {panel.type === "conversation" && editingThread && (
+          <>
+            <div className="conversation-card">
+              <span className={`message-avatar ${editingThread.tone}`}>{editingThread.avatar}</span>
+              <div><b>{editingThread.name}</b><small>{editingThread.time}</small></div>
+              <p>{editingThread.message}</p>
+              {editingThread.replies.map((item, index) => <em key={`${item}-${index}`}>{item}</em>)}
+            </div>
+            <div className="reply-box">
+              <textarea value={reply} onChange={(e) => setReply(e.target.value)} placeholder="输入回复内容" />
+              <button
+                type="button"
+                disabled={!reply.trim()}
+                onClick={() =>
+                  onSaveThread({
+                    ...editingThread,
+                    unread: 0,
+                    time: "刚刚",
+                    replies: [...editingThread.replies, reply.trim()],
+                  })
+                }
+              >
+                <Send size={17} />
+              </button>
+            </div>
+            {editingThread.unread > 0 && (
+              <button
+                className="button ghost full"
+                type="button"
+                onClick={() => onSaveThread({ ...editingThread, unread: 0 })}
+              >
+                标记为已读
+              </button>
+            )}
+          </>
+        )}
+
+        {panel.type === "duty" && (
+          <>
+            <div className="editor-form">
+              <label><span>值日小组</span><input value={dutyGroup} onChange={(e) => setDutyGroup(e.target.value)} /></label>
+              <label><span>组长</span><input value={dutyLeader} onChange={(e) => setDutyLeader(e.target.value)} /></label>
+              <label><span>人数</span><input type="number" min={0} value={dutyMembers} onChange={(e) => setDutyMembers(Number(e.target.value))} /></label>
+            </div>
+            <button className="button primary full" type="button" onClick={() => onSaveDuty({ group: dutyGroup.trim(), leader: dutyLeader.trim(), members: Math.max(dutyMembers, 0) })}>
+              保存值日安排
+            </button>
+          </>
+        )}
+
+        {panel.type === "event" && (
+          <>
+            <div className="form-grid two">
+              <label><span>日期</span><input value={eventDate} maxLength={2} onChange={(e) => setEventDate(e.target.value)} /></label>
+              <label>
+                <span>星期</span>
+                <select value={eventWeekday} onChange={(e) => setEventWeekday(e.target.value)}>
+                  {["一", "二", "三", "四", "五", "六", "日"].map((day) => <option key={day}>{day}</option>)}
+                </select>
+              </label>
+            </div>
+            <div className="editor-form">
+              <label><span>事项名称</span><input autoFocus value={eventTitle} onChange={(e) => setEventTitle(e.target.value)} /></label>
+              <label><span>说明</span><textarea value={eventDetail} onChange={(e) => setEventDetail(e.target.value)} /></label>
+              <label>
+                <span>状态</span>
+                <select value={eventStatus} onChange={(e) => setEventStatus(e.target.value)}>
+                  <option>待开始</option><option>进行中</option><option>重要</option><option>已完成</option>
+                </select>
+              </label>
+            </div>
+            <div className="sheet-actions">
+              {editingEvent ? (
+                <button className="button danger" type="button" onClick={() => onDeleteEvent(editingEvent.id)}><Trash2 size={16} /> 删除</button>
+              ) : <span />}
+              <button
+                className="button primary"
+                type="button"
+                disabled={!eventTitle.trim()}
+                onClick={() =>
+                  onSaveEvent({
+                    id: editingEvent?.id ?? `event-${Date.now()}`,
+                    classId: activeClass.id,
+                    date: eventDate.padStart(2, "0"),
+                    weekday: eventWeekday,
+                    title: eventTitle.trim(),
+                    detail: eventDetail.trim() || "暂无补充说明",
+                    status: eventStatus,
+                  })
+                }
+              >
+                保存事项
+              </button>
+            </div>
+          </>
+        )}
+
+        {panel.type === "lesson" && (
+          <>
+            <div className="form-grid two">
+              <label>
+                <span>班级</span>
+                <select value={lessonClassId} onChange={(e) => {
+                  setLessonClassId(e.target.value);
+                  setLessonRoom(classes.find((item) => item.id === e.target.value)?.name ?? "");
+                }}>
+                  {classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>星期</span>
+                <select value={lessonWeekday} onChange={(e) => setLessonWeekday(Number(e.target.value))}>
+                  {weekdays.map((day, index) => <option key={day} value={index + 1}>{day}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>节次</span>
+                <select value={lessonPeriod} onChange={(e) => setLessonPeriod(Number(e.target.value))}>
+                  {periodTimes.map((time, index) => <option key={time[0]} value={index + 1}>第 {index + 1} 节 · {time[0]}</option>)}
+                </select>
+              </label>
+              <label><span>课程</span><input value={lessonSubject} onChange={(e) => setLessonSubject(e.target.value)} /></label>
+            </div>
+            <div className="editor-form">
+              <label><span>教室 / 地点</span><input value={lessonRoom} onChange={(e) => setLessonRoom(e.target.value)} /></label>
+            </div>
+            <div className="sheet-actions">
+              {editingLesson ? (
+                <button className="button danger" type="button" onClick={() => onDeleteLesson(editingLesson.id)}><Trash2 size={16} /> 删除</button>
+              ) : <span />}
+              <button
+                className="button primary"
+                type="button"
+                disabled={!lessonSubject.trim()}
+                onClick={() => {
+                  const collision = lessons.find(
+                    (lesson) =>
+                      lesson.id !== editingLesson?.id &&
+                      lesson.classId === lessonClassId &&
+                      lesson.weekday === lessonWeekday &&
+                      lesson.period === lessonPeriod,
+                  );
+                  if (collision) {
+                    showToast(`该班级此时段已有${collision.subject}`);
+                    return;
+                  }
+                  onSaveLesson({
+                    id: editingLesson?.id ?? `lesson-${Date.now()}`,
+                    classId: lessonClassId,
+                    weekday: lessonWeekday,
+                    period: lessonPeriod,
+                    subject: lessonSubject.trim(),
+                    room: lessonRoom.trim() || classes.find((item) => item.id === lessonClassId)?.name || "教室",
+                    start: periodTimes[lessonPeriod - 1][0],
+                    end: periodTimes[lessonPeriod - 1][1],
+                  });
+                }}
+              >
+                保存课程
+              </button>
+            </div>
+          </>
+        )}
+
+        {panel.type === "schedule-rules" && (
+          <>
+            <div className="summary-banner">
+              <Sparkles size={19} />
+              <span><b>自动汇总规则</b><small>系统会从全部班级中筛选课程名称包含该关键词的课程。</small></span>
+            </div>
+            <div className="editor-form">
+              <label><span>课程关键词</span><input autoFocus value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="数学" /></label>
+            </div>
+            <button className="button primary full" type="button" disabled={!keyword.trim()} onClick={() => onSaveScheduleKeyword(keyword.trim())}>
+              保存汇总规则
+            </button>
+          </>
+        )}
+
+        {panel.type === "apps" && (
+          <div className="app-launcher">
+            {[
+              { icon: GraduationCap, label: "学情管理", sub: "学生记录与知识点", action: () => onNavigate("study") },
+              { icon: MessageCircleMore, label: "沟通中心", sub: "消息、群组与回执", action: () => onNavigate("chat") },
+              { icon: CalendarDays, label: "班级事务", sub: "值日、活动与座位", action: () => onNavigate("affairs") },
+              { icon: Table2, label: "我的课表", sub: "编辑、导入与导出", action: () => onNavigate("schedule") },
+              { icon: UserPlus, label: "新建班级", sub: "添加另一个任教班级", action: () => onOpenPanel({ type: "new-class" }) },
+              { icon: ListChecks, label: "全部待办", sub: "查看并标记完成", action: () => onOpenPanel({ type: "todos" }) },
+            ].map(({ icon: Icon, label, sub, action }) => (
+              <button type="button" key={label} onClick={action}>
+                <span><Icon size={20} /></span><b>{label}</b><small>{sub}</small>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {(panel.type === "seating" || panel.type === "album" || panel.type === "analysis") && (
+          <>
+            {panel.type === "analysis" && (
+              <div className="summary-banner">
+                <Sparkles size={19} />
+                <span><b>数据摘要</b><small>{panel.description}</small></span>
+              </div>
+            )}
+            {panel.type === "album" && (
+              <label className="mini-upload">
+                <ImagePlus size={22} />
+                <span><b>{albumFileName || "选择照片"}</b><small>照片文件保留在当前设备，不会上传服务器</small></span>
+                <input type="file" accept="image/*" hidden onChange={(e) => setAlbumFileName(e.target.files?.[0]?.name ?? "")} />
+              </label>
+            )}
+            <div className="editor-form">
+              <label>
+                <span>{panel.type === "seating" ? "座位调整方案" : panel.type === "album" ? "照片备注" : "我的补充记录"}</span>
+                <textarea
+                  value={featureNote}
+                  onChange={(e) => setFeatureNote(e.target.value)}
+                  placeholder={
+                    panel.type === "seating"
+                      ? "例如：第一排左右互换，林子涵调至中间..."
+                      : "输入需要保存在本机的自定义内容"
+                  }
+                />
+              </label>
+            </div>
+            <button className="button primary full" type="button" onClick={saveFeatureNote}>保存自定义内容</button>
+          </>
+        )}
+      </section>
     </div>
   );
 }
