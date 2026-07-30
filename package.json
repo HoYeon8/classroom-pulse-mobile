@@ -2,10 +2,11 @@
   "name": "classroom-pulse-mobile",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build && node scripts/prepare-dist.mjs",
-    "start": "next start",
+    "dev": "vinext dev",
+    "build": "vinext build && node scripts/prepare-sites.mjs",
+    "start": "vinext start",
     "lint": "eslint ."
   },
   "dependencies": {
@@ -13,14 +14,19 @@
     "next": "15.5.22",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "react-server-dom-webpack": "^19.2.8",
+    "vinext": "1.0.0-beta.4",
     "xlsx": "0.18.5"
   },
   "devDependencies": {
     "@types/node": "22.20.1",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "^6.0.4",
+    "@vitejs/plugin-rsc": "^0.5.32",
     "eslint": "9.39.5",
     "eslint-config-next": "15.5.22",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vite": "^8.1.5"
   }
 }
