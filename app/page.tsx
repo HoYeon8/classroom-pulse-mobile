@@ -55,6 +55,15 @@ type Lesson = {
   end: string;
 };
 type ImportRow = Omit<Lesson, "id" | "start" | "end">;
+type GradeImportRow = {
+  classId: string;
+  name: string;
+  gender: "男" | "女";
+  chinese: number | null;
+  math: number | null;
+  english: number | null;
+  note: string;
+};
 type ClassStats = {
   arrived: number;
   leave: number;
@@ -502,6 +511,7 @@ export default function Home() {
   const [editClassId, setEditClassId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [importOpen, setImportOpen] = useState(false);
+  const [gradeImportOpen, setGradeImportOpen] = useState(false);
   const [toast, setToast] = useState("");
   const [panel, setPanel] = useState<PanelState | null>(null);
   const [stats, setStats] = useState<Record<string, ClassStats>>(initialStats);
@@ -701,6 +711,7 @@ export default function Home() {
             <StudyView
               activeClass={activeClass}
               students={students}
+              onOpenGradeImport={() => setGradeImportOpen(true)}
               onOpenPanel={setPanel}
             />
           )}
@@ -871,6 +882,46 @@ export default function Home() {
               setLessons((items) => [...items, ...imported]);
               setImportOpen(false);
               showToast(`已导入 ${imported.length} 节课程，课表已更新`);
+            }}
+          />
+        )}
+
+        {gradeImportOpen && (
+          <GradeImportSheet
+            classes={classes}
+            activeClass={activeClass}
+            students={students}
+            onClose={() => setGradeImportOpen(false)}
+            onImport={(rows) => {
+              setStudents((items) => {
+                const next = [...items];
+                rows.forEach((row, index) => {
+                  const existingIndex = next.findIndex(
+                    (student) =>
+                      student.classId === row.classId && student.name.trim() === row.name.trim(),
+                  );
+                  const existing = existingIndex >= 0 ? next[existingIndex] : undefined;
+                  const student: StudentRecord = {
+                    id: existing?.id ?? `student-import-${Date.now()}-${index}`,
+                    classId: row.classId,
+                    name: row.name.trim(),
+                    gender: row.gender,
+                    scores: {
+                      chinese: row.chinese ?? existing?.scores.chinese ?? 0,
+                      math: row.math ?? existing?.scores.math ?? 0,
+                      english: row.english ?? existing?.scores.english ?? 0,
+                    },
+                    note: row.note.trim() || existing?.note || "由成绩表导入",
+                    tag: existing?.tag ?? "已导入",
+                    positive: existing?.positive ?? false,
+                  };
+                  if (existingIndex >= 0) next[existingIndex] = student;
+                  else next.push(student);
+                });
+                return next;
+              });
+              setGradeImportOpen(false);
+              showToast(`已导入并更新 ${rows.length} 名学生成绩`);
             }}
           />
         )}
@@ -1211,10 +1262,12 @@ function Dashboard({
 function StudyView({
   activeClass,
   students,
+  onOpenGradeImport,
   onOpenPanel,
 }: {
   activeClass: ClassInfo;
   students: StudentRecord[];
+  onOpenGradeImport: () => void;
   onOpenPanel: (panel: PanelState) => void;
 }) {
   const classStudents = students.filter((student) => student.classId === activeClass.id);
@@ -1258,9 +1311,14 @@ function StudyView({
         title="成绩可视化"
         subtitle="从班级分布到个人成绩，一页看清"
         action={
-          <button className="import-button" type="button" onClick={() => onOpenPanel({ type: "student" })}>
-            <Plus size={16} /> 录入
-          </button>
+          <div className="score-heading-actions">
+            <button className="import-button secondary" type="button" onClick={onOpenGradeImport}>
+              <UploadCloud size={15} /> 导入
+            </button>
+            <button className="import-button" type="button" onClick={() => onOpenPanel({ type: "student" })}>
+              <Plus size={15} /> 录入
+            </button>
+          </div>
         }
       />
       <div className="score-view-switch">
@@ -2640,6 +2698,269 @@ function ActionPanel({
               </label>
             </div>
             <button className="button primary full" type="button" onClick={saveFeatureNote}>保存自定义内容</button>
+          </>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function GradeImportSheet({
+  classes,
+  activeClass,
+  students,
+  onClose,
+  onImport,
+}: {
+  classes: ClassInfo[];
+  activeClass: ClassInfo;
+  students: StudentRecord[];
+  onClose: () => void;
+  onImport: (rows: GradeImportRow[]) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [fileName, setFileName] = useState("");
+  const [preview, setPreview] = useState<GradeImportRow[]>([]);
+  const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState("");
+
+  const getClassId = (value: unknown) => {
+    const text = String(value ?? "").trim();
+    if (!text) return activeClass.id;
+    const normalized = text.replace(/\s+/g, "");
+    return (
+      classes.find((item) => {
+        const className = item.name.replace(/\s+/g, "");
+        return normalized.includes(className) || className.includes(normalized);
+      })?.id ?? activeClass.id
+    );
+  };
+
+  const parseScore = (value: unknown) => {
+    const text = String(value ?? "").trim();
+    if (!text) return null;
+    const score = Number(text.replace(/[^\d.-]/g, ""));
+    return Number.isFinite(score) ? Math.min(Math.max(score, 0), 100) : null;
+  };
+
+  const parseRows = (rows: unknown[][]) => {
+    if (!rows.length) return [];
+    const headers = rows[0].map((item) => String(item ?? "").trim());
+    const findColumn = (names: string[]) =>
+      headers.findIndex((header) => names.some((name) => header.includes(name)));
+    const classColumn = findColumn(["班级", "授课班"]);
+    const nameColumn = findColumn(["学生姓名", "姓名", "学生"]);
+    const genderColumn = findColumn(["性别"]);
+    const chineseColumn = findColumn(["语文"]);
+    const mathColumn = findColumn(["数学"]);
+    const englishColumn = findColumn(["英语", "英文"]);
+    const noteColumn = findColumn(["评语", "备注", "评价"]);
+    if (nameColumn < 0) throw new Error("未识别到“姓名”列");
+    if (chineseColumn < 0 && mathColumn < 0 && englishColumn < 0) {
+      throw new Error("未识别到“语文 / 数学 / 英语”成绩列");
+    }
+
+    return rows
+      .slice(1)
+      .filter((row) => row.some((cell) => String(cell ?? "").trim()))
+      .map((row, index) => {
+        const classId = classColumn >= 0 ? getClassId(row[classColumn]) : activeClass.id;
+        const name = String(row[nameColumn] ?? "").trim();
+        const existing = students.find(
+          (student) => student.classId === classId && student.name.trim() === name,
+        );
+        const genderText = genderColumn >= 0 ? String(row[genderColumn] ?? "").trim() : "";
+        const gender = genderText.includes("女")
+          ? "女"
+          : genderText.includes("男")
+            ? "男"
+            : existing?.gender ?? (index % 2 ? "女" : "男");
+        return {
+          classId,
+          name,
+          gender,
+          chinese: chineseColumn >= 0 ? parseScore(row[chineseColumn]) : null,
+          math: mathColumn >= 0 ? parseScore(row[mathColumn]) : null,
+          english: englishColumn >= 0 ? parseScore(row[englishColumn]) : null,
+          note: noteColumn >= 0 ? String(row[noteColumn] ?? "").trim() : "",
+        } satisfies GradeImportRow;
+      })
+      .filter((row) => row.name)
+      .slice(0, 120);
+  };
+
+  const handleFile = async (file?: File) => {
+    if (!file) return;
+    setError("");
+    setFileName(file.name);
+    setPreview([]);
+    setProcessing(true);
+    try {
+      const rawRows = /\.(csv|tsv)$/i.test(file.name)
+        ? parseDelimitedText(await file.text())
+        : await (async () => {
+            const XLSX = await import("xlsx");
+            const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            return XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: "" });
+          })();
+      const parsed = parseRows(rawRows);
+      if (!parsed.length) throw new Error("文件中没有可导入的学生成绩");
+      setPreview(parsed);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "文件解析失败，请检查表格格式");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const updatePreview = (index: number, values: Partial<GradeImportRow>) => {
+    setPreview((rows) =>
+      rows.map((row, rowIndex) => (rowIndex === index ? { ...row, ...values } : row)),
+    );
+  };
+
+  const importSummary = useMemo(() => {
+    const updated = preview.filter((row) =>
+      students.some(
+        (student) =>
+          student.classId === row.classId && student.name.trim() === row.name.trim(),
+      ),
+    ).length;
+    return { updated, created: preview.length - updated };
+  }, [preview, students]);
+
+  const downloadTemplate = () => {
+    const escapeCell = (value: string) => `"${value.replace(/"/g, '""')}"`;
+    const csv = [
+      ["班级", "姓名", "性别", "语文", "数学", "英语", "评语"],
+      [activeClass.name, "示例学生", "女", "88", "92", "90", "课堂表现稳定"],
+    ]
+      .map((row) => row.map(escapeCell).join(","))
+      .join("\r\n");
+    const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "成绩导入模板.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const resetFile = () => {
+    setFileName("");
+    setPreview([]);
+    setError("");
+    if (inputRef.current) inputRef.current.value = "";
+  };
+
+  return (
+    <div className="modal-layer" role="presentation" onMouseDown={onClose}>
+      <section
+        className="bottom-sheet grade-import-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label="导入成绩表"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="sheet-handle" />
+        <div className="sheet-heading grade-import-heading">
+          <div>
+            <p className="eyebrow">批量录入</p>
+            <h2>导入学生成绩</h2>
+          </div>
+          <button className="icon-button soft" type="button" onClick={onClose} aria-label="关闭">
+            <X size={20} />
+          </button>
+        </div>
+
+        {!fileName ? (
+          <>
+            <button className="upload-zone grade-upload-zone" type="button" onClick={() => inputRef.current?.click()}>
+              <span><FileSpreadsheet size={25} /></span>
+              <b>选择成绩表</b>
+              <small>支持 Excel、CSV、TSV，最多导入 120 名学生</small>
+            </button>
+            <input
+              ref={inputRef}
+              hidden
+              type="file"
+              accept=".xlsx,.xls,.csv,.tsv"
+              onChange={(event) => handleFile(event.target.files?.[0])}
+            />
+            <div className="grade-import-actions">
+              <button type="button" onClick={() => inputRef.current?.click()}>
+                <UploadCloud size={18} /> 从文件导入
+              </button>
+              <button type="button" onClick={downloadTemplate}>
+                <Download size={18} /> 下载成绩模板
+              </button>
+            </div>
+            <div className="format-tip grade-format-tip">
+              <Sparkles size={16} />
+              <span>首行需含姓名及至少一个成绩列；可选列：班级、性别、语文、数学、英语、评语。</span>
+            </div>
+            <p className="grade-match-tip">同班级 + 同姓名会更新已有学生；表格里的空白科目将保留原成绩。</p>
+          </>
+        ) : (
+          <>
+            <div className="file-summary">
+              <span className="sheet"><FileSpreadsheet size={20} /></span>
+              <div>
+                <b>{fileName}</b>
+                <small>{processing ? "正在解析…" : `已识别 ${preview.length} 名学生`}</small>
+              </div>
+              <button type="button" onClick={resetFile}>重新选择</button>
+            </div>
+            {error && <div className="import-error">{error}</div>}
+            {!!preview.length && (
+              <>
+                <div className="grade-import-summary">
+                  <span><b>{preview.length}</b><small>识别人数</small></span>
+                  <span><b>{importSummary.created}</b><small>新增</small></span>
+                  <span><b>{importSummary.updated}</b><small>更新</small></span>
+                </div>
+                <p className="grade-match-tip compact">导入前可直接修改草稿，空白成绩不会覆盖原数据。</p>
+                <div className="grade-preview">
+                  <div className="grade-preview-head">
+                    <span>班级</span><span>姓名</span><span>性别</span><span>语文</span><span>数学</span><span>英语</span><span>评语</span>
+                  </div>
+                  {preview.map((row, index) => (
+                    <div className="grade-preview-row" key={`${row.classId}-${row.name}-${index}`}>
+                      <select value={row.classId} aria-label={`第 ${index + 1} 行班级`} onChange={(event) => updatePreview(index, { classId: event.target.value })}>
+                        {classes.map((item) => <option key={item.id} value={item.id}>{item.name.replace("年级 ", "")}</option>)}
+                      </select>
+                      <input value={row.name} aria-label={`第 ${index + 1} 行姓名`} onChange={(event) => updatePreview(index, { name: event.target.value })} />
+                      <select value={row.gender} aria-label={`第 ${index + 1} 行性别`} onChange={(event) => updatePreview(index, { gender: event.target.value as "男" | "女" })}>
+                        <option value="男">男</option><option value="女">女</option>
+                      </select>
+                      {(["chinese", "math", "english"] as const).map((subject) => (
+                        <input
+                          key={subject}
+                          type="number"
+                          min="0"
+                          max="100"
+                          inputMode="decimal"
+                          aria-label={`第 ${index + 1} 行${subject === "chinese" ? "语文" : subject === "math" ? "数学" : "英语"}`}
+                          value={row[subject] ?? ""}
+                          placeholder="—"
+                          onChange={(event) => updatePreview(index, { [subject]: event.target.value === "" ? null : parseScore(event.target.value) })}
+                        />
+                      ))}
+                      <input value={row.note} aria-label={`第 ${index + 1} 行评语`} placeholder="可选" onChange={(event) => updatePreview(index, { note: event.target.value })} />
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+            <button
+              className="button primary full"
+              type="button"
+              disabled={processing || !preview.length}
+              onClick={() => onImport(preview.filter((row) => row.name.trim()))}
+            >
+              <CheckCircle2 size={17} />
+              导入并更新成绩
+            </button>
           </>
         )}
       </section>
