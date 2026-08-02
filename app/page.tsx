@@ -72,9 +72,21 @@ type StudentRecord = {
   id: string;
   classId: string;
   name: string;
+  gender: "男" | "女";
+  scores: {
+    chinese: number;
+    math: number;
+    english: number;
+  };
   note: string;
   tag: string;
   positive?: boolean;
+};
+type SeatPlan = {
+  rows: number;
+  columns: number;
+  studentIds: Array<string | null>;
+  updatedAt: string;
 };
 type ChatThread = {
   id: string;
@@ -225,16 +237,27 @@ const initialTodos: TodoItem[] = [
 ];
 
 const initialStudents: StudentRecord[] = [
-  { id: "student-1", classId: "c1", name: "林子涵", note: "计算题正确率连续下降", tag: "需关注" },
-  { id: "student-2", classId: "c1", name: "李欣怡", note: "2 项作业待补交", tag: "待跟进" },
+  { id: "student-1", classId: "c1", name: "林子涵", gender: "男", scores: { chinese: 75, math: 68, english: 72 }, note: "计算题正确率连续下降", tag: "需关注" },
+  { id: "student-2", classId: "c1", name: "李欣怡", gender: "女", scores: { chinese: 88, math: 82, english: 86 }, note: "2 项作业待补交", tag: "待跟进" },
   {
     id: "student-3",
     classId: "c1",
     name: "陈嘉树",
+    gender: "男",
+    scores: { chinese: 92, math: 96, english: 90 },
     note: "应用题进步明显",
     tag: "有进步",
     positive: true,
   },
+  { id: "student-4", classId: "c1", name: "王雨桐", gender: "女", scores: { chinese: 95, math: 91, english: 88 }, note: "学习状态稳定", tag: "优秀", positive: true },
+  { id: "student-5", classId: "c1", name: "周浩宇", gender: "男", scores: { chinese: 80, math: 76, english: 78 }, note: "课堂参与积极", tag: "稳定", positive: true },
+  { id: "student-6", classId: "c1", name: "赵可馨", gender: "女", scores: { chinese: 70, math: 64, english: 73 }, note: "基础题需要巩固", tag: "需关注" },
+  { id: "student-7", classId: "c1", name: "孙博文", gender: "男", scores: { chinese: 84, math: 88, english: 81 }, note: "数学思维活跃", tag: "有进步", positive: true },
+  { id: "student-8", classId: "c1", name: "吴思琪", gender: "女", scores: { chinese: 68, math: 59, english: 65 }, note: "作业完成速度偏慢", tag: "待跟进" },
+  { id: "student-9", classId: "c1", name: "徐子墨", gender: "男", scores: { chinese: 89, math: 93, english: 94 }, note: "各科表现均衡", tag: "优秀", positive: true },
+  { id: "student-10", classId: "c1", name: "何欣然", gender: "女", scores: { chinese: 83, math: 78, english: 85 }, note: "英语表达突出", tag: "稳定", positive: true },
+  { id: "student-11", classId: "c1", name: "高铭泽", gender: "男", scores: { chinese: 66, math: 71, english: 74 }, note: "需要加强阅读理解", tag: "需关注" },
+  { id: "student-12", classId: "c1", name: "罗诗涵", gender: "女", scores: { chinese: 90, math: 86, english: 87 }, note: "学习习惯良好", tag: "优秀", positive: true },
 ];
 
 const initialThreads: ChatThread[] = [
@@ -335,6 +358,54 @@ const quickActionMeta: Record<
 };
 
 const storageKey = "classroom-pulse-mobile-v2";
+
+const averageScore = (student: StudentRecord) =>
+  Math.round((student.scores.chinese + student.scores.math + student.scores.english) / 3);
+
+const normalizeStudent = (student: Partial<StudentRecord>, index: number): StudentRecord => ({
+  id: student.id ?? `student-${Date.now()}-${index}`,
+  classId: student.classId ?? "c1",
+  name: student.name ?? `学生${index + 1}`,
+  gender: student.gender === "女" ? "女" : index % 2 ? "女" : "男",
+  scores: {
+    chinese: Number(student.scores?.chinese ?? 75),
+    math: Number(student.scores?.math ?? 75),
+    english: Number(student.scores?.english ?? 75),
+  },
+  note: student.note ?? "暂无观察记录",
+  tag: student.tag ?? "记录",
+  positive: student.positive ?? false,
+});
+
+function generateBalancedSeatIds(students: StudentRecord[], seatCount: number) {
+  const ranked = [...students].sort((a, b) => averageScore(b) - averageScore(a));
+  const upper = ranked.slice(0, Math.ceil(ranked.length / 2));
+  const lower = ranked.slice(Math.ceil(ranked.length / 2)).reverse();
+  const arranged: StudentRecord[] = [];
+  let pairIndex = 0;
+
+  while (upper.length || lower.length) {
+    const first = upper.shift() ?? lower.shift();
+    if (!first) break;
+    const partnerPool = lower.length ? lower : upper;
+    let partnerIndex = partnerPool.findIndex((item) => item.gender !== first.gender);
+    if (partnerIndex < 0) partnerIndex = 0;
+    const partner = partnerPool.splice(partnerIndex, 1)[0];
+    if (pairIndex % 2 === 0) {
+      arranged.push(first);
+      if (partner) arranged.push(partner);
+    } else {
+      if (partner) arranged.push(partner);
+      arranged.push(first);
+    }
+    pairIndex += 1;
+  }
+
+  return [
+    ...arranged.slice(0, seatCount).map((student) => student.id),
+    ...Array.from({ length: Math.max(seatCount - arranged.length, 0) }, () => null),
+  ];
+}
 
 const navItems: Array<{
   key: TabKey;
@@ -439,6 +510,7 @@ export default function Home() {
   const [threads, setThreads] = useState<ChatThread[]>(initialThreads);
   const [events, setEvents] = useState<ClassEvent[]>(initialEvents);
   const [duty, setDuty] = useState<Record<string, DutyInfo>>(initialDuty);
+  const [seatPlans, setSeatPlans] = useState<Record<string, SeatPlan>>({});
   const [quickActions, setQuickActions] = useState<QuickActionKey[]>([
     "attendance",
     "homework",
@@ -476,6 +548,7 @@ export default function Home() {
           threads?: ChatThread[];
           events?: ClassEvent[];
           duty?: Record<string, DutyInfo>;
+          seatPlans?: Record<string, SeatPlan>;
           quickActions?: QuickActionKey[];
           scheduleKeyword?: string;
         };
@@ -484,10 +557,23 @@ export default function Home() {
         if (saved.lessons?.length) setLessons(saved.lessons);
         if (saved.stats) setStats(saved.stats);
         if (saved.todos) setTodos(saved.todos);
-        if (saved.students) setStudents(saved.students);
+        if (saved.students) {
+          const defaultNames = ["林子涵", "李欣怡", "陈嘉树"];
+          const legacyDefaultSamples =
+            saved.students.length === 3 &&
+            saved.students.every(
+              (student, index) =>
+                student.id === `student-${index + 1}` &&
+                student.name === defaultNames[index] &&
+                !student.scores,
+            );
+          const normalizedStudents = saved.students.map(normalizeStudent);
+          setStudents(legacyDefaultSamples ? initialStudents : normalizedStudents);
+        }
         if (saved.threads) setThreads(saved.threads);
         if (saved.events) setEvents(saved.events);
         if (saved.duty) setDuty(saved.duty);
+        if (saved.seatPlans) setSeatPlans(saved.seatPlans);
         if (saved.quickActions?.length) setQuickActions(saved.quickActions);
         if (saved.scheduleKeyword) setScheduleKeyword(saved.scheduleKeyword);
       }
@@ -512,6 +598,7 @@ export default function Home() {
         threads,
         events,
         duty,
+        seatPlans,
         quickActions,
         scheduleKeyword,
       }),
@@ -524,6 +611,7 @@ export default function Home() {
     lessons,
     quickActions,
     scheduleKeyword,
+    seatPlans,
     stats,
     storageReady,
     students,
@@ -628,6 +716,7 @@ export default function Home() {
               activeClass={activeClass}
               duty={duty[activeClass.id] ?? { group: "第一小组", leader: "待设置", members: 0 }}
               events={events.filter((item) => item.classId === activeClass.id)}
+              seatPlan={seatPlans[activeClass.id]}
               onOpenPanel={setPanel}
             />
           )}
@@ -800,6 +889,7 @@ export default function Home() {
             threads={threads}
             events={events}
             duty={duty[activeClass.id] ?? { group: "第一小组", leader: "待设置", members: 0 }}
+            seatPlan={seatPlans[activeClass.id]}
             lessons={lessons}
             quickActions={quickActions}
             scheduleKeyword={scheduleKeyword}
@@ -888,6 +978,10 @@ export default function Home() {
               setDuty((items) => ({ ...items, [activeClass.id]: nextDuty }));
               setPanel(null);
               showToast("值日安排已保存");
+            }}
+            onSaveSeatPlan={(seatPlan) => {
+              setSeatPlans((items) => ({ ...items, [activeClass.id]: seatPlan }));
+              showToast("座位表已保存到本机");
             }}
             onSaveLesson={(lesson) => {
               setLessons((items) =>
@@ -1124,112 +1218,153 @@ function StudyView({
   onOpenPanel: (panel: PanelState) => void;
 }) {
   const classStudents = students.filter((student) => student.classId === activeClass.id);
+  const [mode, setMode] = useState<"scores" | "profiles">("scores");
+  const [scoreSubject, setScoreSubject] = useState<"total" | "chinese" | "math" | "english">("total");
+  const scoreFor = (student: StudentRecord) =>
+    scoreSubject === "total" ? averageScore(student) : student.scores[scoreSubject];
+  const rankedStudents = [...classStudents].sort((a, b) => scoreFor(b) - scoreFor(a));
+  const classAverage = classStudents.length
+    ? Math.round(classStudents.reduce((total, student) => total + scoreFor(student), 0) / classStudents.length)
+    : 0;
+  const passCount = classStudents.filter((student) => scoreFor(student) >= 60).length;
+  const passRate = classStudents.length ? Math.round((passCount / classStudents.length) * 100) : 0;
+  const subjectAverages = [
+    ["语文", "chinese"],
+    ["数学", "math"],
+    ["英语", "english"],
+  ].map(([label, key]) => ({
+    label,
+    key,
+    value: classStudents.length
+      ? Math.round(
+          classStudents.reduce(
+            (total, student) => total + student.scores[key as keyof StudentRecord["scores"]],
+            0,
+          ) / classStudents.length,
+        )
+      : 0,
+  }));
+  const distributions = [
+    { label: "优秀", range: "90—100", count: classStudents.filter((student) => scoreFor(student) >= 90).length, tone: "excellent" },
+    { label: "良好", range: "80—89", count: classStudents.filter((student) => scoreFor(student) >= 80 && scoreFor(student) < 90).length, tone: "good" },
+    { label: "及格", range: "60—79", count: classStudents.filter((student) => scoreFor(student) >= 60 && scoreFor(student) < 80).length, tone: "pass" },
+    { label: "待提升", range: "0—59", count: classStudents.filter((student) => scoreFor(student) < 60).length, tone: "attention" },
+  ];
 
   return (
     <div className="page-content inner-page">
-      <PageHeading eyebrow={activeClass.name} title="学情管理" subtitle="用数据看见每位学生的进步" />
-      <section className="learning-hero">
-        <div>
-          <span>本周学习指数</span>
-          <strong>87.6</strong>
-          <small>
-            <i>↑ 4.2%</i> 较上周
-          </small>
-        </div>
-        <div className="score-ring">
-          <div>
-            <b>A</b>
-            <span>良好</span>
-          </div>
-        </div>
-      </section>
-      <section className="split-metrics">
-        <button
-          onClick={() =>
-            onOpenPanel({
-              type: "analysis",
-              title: "正确率趋势",
-              description: "近四周平均正确率为 78%、81%、82% 和 84.5%，整体保持上升。",
-            })
-          }
-        >
-          <span className="mini-chart bars">
-            <i /><i /><i /><i /><i />
-          </span>
-          <b>84.5%</b>
-          <small>平均正确率</small>
-        </button>
-        <button
-          onClick={() =>
-            onOpenPanel({
-              type: "analysis",
-              title: "作业完成情况",
-              description: `${activeClass.students} 名学生中有 39 人按时完成，建议重点跟进未提交学生。`,
-            })
-          }
-        >
-          <span className="mini-chart line">⌁</span>
-          <b>39 / 42</b>
-          <small>按时完成人数</small>
-        </button>
-      </section>
-      <SectionTitle
-        title="重点关注"
-        action="新增记录"
-        onAction={() => onOpenPanel({ type: "student" })}
-      />
-      <section className="student-list">
-        {classStudents.map((student, index) => (
-          <button
-            key={student.id}
-            onClick={() => onOpenPanel({ type: "student", studentId: student.id })}
-          >
-            <span className={`student-avatar avatar-${index % 3}`}>
-              {student.name.slice(0, 1)}
-            </span>
-            <span>
-              <b>{student.name}</b>
-              <small>{student.note}</small>
-            </span>
-            <em className={student.positive ? "positive" : ""}>{student.tag}</em>
+      <PageHeading
+        eyebrow={activeClass.name}
+        title="成绩可视化"
+        subtitle="从班级分布到个人成绩，一页看清"
+        action={
+          <button className="import-button" type="button" onClick={() => onOpenPanel({ type: "student" })}>
+            <Plus size={16} /> 录入
           </button>
-        ))}
-        {!classStudents.length && (
-          <button onClick={() => onOpenPanel({ type: "student" })}>
-            <span className="student-avatar avatar-0"><UserPlus size={17} /></span>
-            <span><b>添加学生观察记录</b><small>记录表现、进步与跟进事项</small></span>
-            <ChevronRight size={17} />
-          </button>
-        )}
-      </section>
-      <SectionTitle
-        title="知识点掌握"
-        action="查看说明"
-        onAction={() =>
-          onOpenPanel({
-            type: "analysis",
-            title: "知识点掌握",
-            description: "数据可结合课堂练习、作业与测验手动维护；当前展示的是本单元示例汇总。",
-          })
         }
       />
-      <section className="mastery-card">
-        {[
-          ["分数的意义", 92],
-          ["分数加减法", 84],
-          ["约分与通分", 71],
-        ].map(([label, score]) => (
-          <div key={String(label)}>
-            <span>
-              <b>{label}</b>
-              <em>{score}%</em>
-            </span>
-            <i>
-              <span style={{ width: `${score}%` }} />
-            </i>
+      <div className="score-view-switch">
+        <button className={mode === "scores" ? "active" : ""} onClick={() => setMode("scores")}>成绩看板</button>
+        <button className={mode === "profiles" ? "active" : ""} onClick={() => setMode("profiles")}>学生档案</button>
+      </div>
+
+      {mode === "scores" && (
+        <>
+          <div className="score-subject-tabs">
+            {[
+              ["total", "总分"],
+              ["chinese", "语文"],
+              ["math", "数学"],
+              ["english", "英语"],
+            ].map(([key, label]) => (
+              <button key={key} className={scoreSubject === key ? "active" : ""} onClick={() => setScoreSubject(key as typeof scoreSubject)}>{label}</button>
+            ))}
           </div>
-        ))}
-      </section>
+
+          <section className="score-overview-card">
+            <div className="score-average">
+              <span>班级平均分</span>
+              <strong>{classAverage}</strong>
+              <small>{classStudents.length} 名学生已录入</small>
+            </div>
+            <div className="score-kpis">
+              <span><b>{passRate}%</b><small>及格率</small></span>
+              <span><b>{rankedStudents[0] ? scoreFor(rankedStudents[0]) : 0}</b><small>最高分</small></span>
+              <span><b>{distributions[0].count}</b><small>优秀人数</small></span>
+            </div>
+          </section>
+
+          <SectionTitle
+            title="学科平均分"
+            action="编辑成绩"
+            onAction={() => onOpenPanel({ type: "student", studentId: rankedStudents[0]?.id })}
+          />
+          <section className="subject-score-chart" aria-label="学科平均分柱状图">
+            {subjectAverages.map((subject) => (
+              <div key={subject.key}>
+                <b>{subject.value}</b>
+                <span><i style={{ height: `${Math.max(subject.value, 8)}%` }} /></span>
+                <small>{subject.label}</small>
+              </div>
+            ))}
+          </section>
+
+          <SectionTitle
+            title="分数段分布"
+            action={`${classStudents.length} 人`}
+            onAction={() =>
+              onOpenPanel({
+                type: "analysis",
+                title: "成绩分布说明",
+                description: `当前${scoreSubject === "total" ? "三科平均分" : scoreSubject === "chinese" ? "语文" : scoreSubject === "math" ? "数学" : "英语"}统计：优秀 ${distributions[0].count} 人、良好 ${distributions[1].count} 人、及格 ${distributions[2].count} 人、待提升 ${distributions[3].count} 人。`,
+              })
+            }
+          />
+          <section className="score-distribution">
+            {distributions.map((item) => (
+              <div key={item.label}>
+                <span><b>{item.label}</b><small>{item.range}</small></span>
+                <i><em className={item.tone} style={{ width: `${classStudents.length ? Math.max((item.count / classStudents.length) * 100, item.count ? 8 : 0) : 0}%` }} /></i>
+                <strong>{item.count}人</strong>
+              </div>
+            ))}
+          </section>
+
+          <SectionTitle title="学生成绩排名" action="录入成绩" onAction={() => onOpenPanel({ type: "student" })} />
+          <section className="score-ranking">
+            {rankedStudents.map((student, index) => (
+              <button key={student.id} onClick={() => onOpenPanel({ type: "student", studentId: student.id })}>
+                <em className={index < 3 ? `top-${index + 1}` : ""}>{index + 1}</em>
+                <span><b>{student.name}</b><small>{student.gender} · 语 {student.scores.chinese} / 数 {student.scores.math} / 英 {student.scores.english}</small></span>
+                <strong>{scoreFor(student)}</strong>
+                <ChevronRight size={15} />
+              </button>
+            ))}
+          </section>
+        </>
+      )}
+
+      {mode === "profiles" && (
+        <>
+          <SectionTitle title="学生档案" action="新增记录" onAction={() => onOpenPanel({ type: "student" })} />
+          <section className="student-list">
+            {classStudents.map((student, index) => (
+              <button key={student.id} onClick={() => onOpenPanel({ type: "student", studentId: student.id })}>
+                <span className={`student-avatar avatar-${index % 3}`}>{student.name.slice(0, 1)}</span>
+                <span><b>{student.name}</b><small>{student.note}</small></span>
+                <em className={student.positive ? "positive" : ""}>{averageScore(student)}分</em>
+              </button>
+            ))}
+            {!classStudents.length && (
+              <button onClick={() => onOpenPanel({ type: "student" })}>
+                <span className="student-avatar avatar-0"><UserPlus size={17} /></span>
+                <span><b>添加学生成绩</b><small>录入性别、成绩和观察记录</small></span>
+                <ChevronRight size={17} />
+              </button>
+            )}
+          </section>
+        </>
+      )}
     </div>
   );
 }
@@ -1316,11 +1451,13 @@ function AffairsView({
   activeClass,
   duty,
   events,
+  seatPlan,
   onOpenPanel,
 }: {
   activeClass: ClassInfo;
   duty: DutyInfo;
   events: ClassEvent[];
+  seatPlan?: SeatPlan;
   onOpenPanel: (panel: PanelState) => void;
 }) {
   return (
@@ -1356,7 +1493,9 @@ function AffairsView({
           {
             icon: UsersRound,
             title: "座位管理",
-            sub: "记录调整方案",
+            sub: seatPlan
+              ? `已排 ${seatPlan.studentIds.filter(Boolean).length} 个座位`
+              : "按性别与成绩智能生成",
             color: "lilac",
             panel: { type: "seating" } as PanelState,
           },
@@ -1587,6 +1726,7 @@ function ActionPanel({
   threads,
   events,
   duty,
+  seatPlan,
   lessons,
   quickActions,
   scheduleKeyword,
@@ -1603,6 +1743,7 @@ function ActionPanel({
   onSaveEvent,
   onDeleteEvent,
   onSaveDuty,
+  onSaveSeatPlan,
   onSaveLesson,
   onDeleteLesson,
   onSaveQuickActions,
@@ -1618,6 +1759,7 @@ function ActionPanel({
   threads: ChatThread[];
   events: ClassEvent[];
   duty: DutyInfo;
+  seatPlan?: SeatPlan;
   lessons: Lesson[];
   quickActions: QuickActionKey[];
   scheduleKeyword: string;
@@ -1634,6 +1776,7 @@ function ActionPanel({
   onSaveEvent: (event: ClassEvent) => void;
   onDeleteEvent: (eventId: string) => void;
   onSaveDuty: (duty: DutyInfo) => void;
+  onSaveSeatPlan: (seatPlan: SeatPlan) => void;
   onSaveLesson: (lesson: Lesson) => void;
   onDeleteLesson: (lessonId: string) => void;
   onSaveQuickActions: (actions: QuickActionKey[]) => void;
@@ -1660,6 +1803,7 @@ function ActionPanel({
     panel.type === "lesson" && panel.lessonId
       ? lessons.find((item) => item.id === panel.lessonId)
       : undefined;
+  const seatingStudents = students.filter((student) => student.classId === activeClass.id);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [arrived, setArrived] = useState(stats.arrived);
@@ -1673,6 +1817,10 @@ function ActionPanel({
   const [todoDue, setTodoDue] = useState(editingTodo?.due ?? "今天 17:00");
   const [todoDone, setTodoDone] = useState(editingTodo?.done ?? false);
   const [studentName, setStudentName] = useState(editingStudent?.name ?? "");
+  const [studentGender, setStudentGender] = useState<"男" | "女">(editingStudent?.gender ?? "男");
+  const [studentChinese, setStudentChinese] = useState(editingStudent?.scores.chinese ?? 75);
+  const [studentMath, setStudentMath] = useState(editingStudent?.scores.math ?? 75);
+  const [studentEnglish, setStudentEnglish] = useState(editingStudent?.scores.english ?? 75);
   const [studentNote, setStudentNote] = useState(editingStudent?.note ?? "");
   const [studentTag, setStudentTag] = useState(editingStudent?.tag ?? "需关注");
   const [studentPositive, setStudentPositive] = useState(editingStudent?.positive ?? false);
@@ -1704,9 +1852,17 @@ function ActionPanel({
   const [keyword, setKeyword] = useState(scheduleKeyword);
   const [featureNote, setFeatureNote] = useState("");
   const [albumFileName, setAlbumFileName] = useState("");
+  const [seatRows, setSeatRows] = useState(
+    seatPlan?.rows ?? Math.max(Math.ceil(seatingStudents.length / 6), 1),
+  );
+  const [seatColumns, setSeatColumns] = useState(seatPlan?.columns ?? 6);
+  const [seatStudentIds, setSeatStudentIds] = useState<Array<string | null>>(
+    seatPlan?.studentIds ?? [],
+  );
+  const [selectedSeat, setSelectedSeat] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!["seating", "album", "analysis"].includes(panel.type)) return;
+    if (!["album", "analysis"].includes(panel.type)) return;
     const suffix = panel.type === "analysis" ? panel.title : panel.type;
     setFeatureNote(
       window.localStorage.getItem(`${storageKey}-note-${activeClass.id}-${suffix}`) ?? "",
@@ -2056,8 +2212,21 @@ function ActionPanel({
 
         {panel.type === "student" && (
           <>
-            <div className="editor-form">
+            <div className="form-grid two">
               <label><span>学生姓名</span><input autoFocus value={studentName} onChange={(e) => setStudentName(e.target.value)} /></label>
+              <label>
+                <span>性别</span>
+                <select value={studentGender} onChange={(e) => setStudentGender(e.target.value as "男" | "女")}>
+                  <option value="男">男生</option><option value="女">女生</option>
+                </select>
+              </label>
+            </div>
+            <div className="form-grid three score-inputs">
+              <label><span>语文</span><input type="number" min={0} max={100} value={studentChinese} onChange={(e) => setStudentChinese(Number(e.target.value))} /></label>
+              <label><span>数学</span><input type="number" min={0} max={100} value={studentMath} onChange={(e) => setStudentMath(Number(e.target.value))} /></label>
+              <label><span>英语</span><input type="number" min={0} max={100} value={studentEnglish} onChange={(e) => setStudentEnglish(Number(e.target.value))} /></label>
+            </div>
+            <div className="editor-form">
               <label><span>观察记录</span><textarea value={studentNote} onChange={(e) => setStudentNote(e.target.value)} placeholder="记录学习表现、进步或需要跟进的情况" /></label>
               <label><span>标签</span><input value={studentTag} onChange={(e) => setStudentTag(e.target.value)} placeholder="需关注 / 有进步" /></label>
               <label className="toggle-row">
@@ -2068,19 +2237,25 @@ function ActionPanel({
             <button
               className="button primary full"
               type="button"
-              disabled={!studentName.trim() || !studentNote.trim()}
+              disabled={!studentName.trim()}
               onClick={() =>
                 onSaveStudent({
                   id: editingStudent?.id ?? `student-${Date.now()}`,
                   classId: activeClass.id,
                   name: studentName.trim(),
-                  note: studentNote.trim(),
+                  gender: studentGender,
+                  scores: {
+                    chinese: Math.min(Math.max(studentChinese, 0), 100),
+                    math: Math.min(Math.max(studentMath, 0), 100),
+                    english: Math.min(Math.max(studentEnglish, 0), 100),
+                  },
+                  note: studentNote.trim() || "暂无观察记录",
                   tag: studentTag.trim() || "记录",
                   positive: studentPositive,
                 })
               }
             >
-              保存学生记录
+              保存成绩与档案
             </button>
           </>
         )}
@@ -2349,7 +2524,97 @@ function ActionPanel({
           </div>
         )}
 
-        {(panel.type === "seating" || panel.type === "album" || panel.type === "analysis") && (
+        {panel.type === "seating" && (
+          <>
+            <div className="summary-banner">
+              <Sparkles size={19} />
+              <span>
+                <b>智能搭配规则</b>
+                <small>按成绩由高到低分层，高低分相邻互补；有条件时优先安排男女生同桌。生成后可点选两个座位手动交换。</small>
+              </span>
+            </div>
+            <div className="form-grid two seat-size-controls">
+              <label><span>行数</span><input type="number" min={1} max={10} value={seatRows} onChange={(e) => setSeatRows(Math.min(Math.max(Number(e.target.value), 1), 10))} /></label>
+              <label><span>每行座位数</span><input type="number" min={2} max={8} value={seatColumns} onChange={(e) => setSeatColumns(Math.min(Math.max(Number(e.target.value), 2), 8))} /></label>
+            </div>
+            <div className="seat-roster-summary">
+              <span><b>{seatingStudents.length}</b><small>已录入学生</small></span>
+              <span><b>{seatingStudents.filter((student) => student.gender === "男").length}</b><small>男生</small></span>
+              <span><b>{seatingStudents.filter((student) => student.gender === "女").length}</b><small>女生</small></span>
+              <span><b>{seatRows * seatColumns}</b><small>座位容量</small></span>
+            </div>
+            <button
+              className="button primary full"
+              type="button"
+              disabled={!seatingStudents.length}
+              onClick={() => {
+                const capacity = seatRows * seatColumns;
+                if (capacity < seatingStudents.length) {
+                  showToast(`还缺 ${seatingStudents.length - capacity} 个座位，请增加行列`);
+                  return;
+                }
+                setSeatStudentIds(generateBalancedSeatIds(seatingStudents, capacity));
+                setSelectedSeat(null);
+                showToast("已按性别与成绩生成座位表");
+              }}
+            >
+              <Sparkles size={17} /> {seatStudentIds.length ? "重新智能排座" : "生成合理座位表"}
+            </button>
+
+            {!!seatStudentIds.length && (
+              <>
+                <div className="seat-plan-title"><span>讲台</span><small>{selectedSeat === null ? "点选两个座位可以交换" : "请选择另一个座位完成交换"}</small></div>
+                <div className="seat-plan-grid" style={{ gridTemplateColumns: `repeat(${seatColumns}, minmax(0, 1fr))` }}>
+                  {Array.from({ length: seatRows * seatColumns }).map((_, index) => {
+                    const studentId = seatStudentIds[index];
+                    const student = seatingStudents.find((item) => item.id === studentId);
+                    return (
+                      <button
+                        type="button"
+                        key={index}
+                        className={`${student ? (student.gender === "男" ? "boy" : "girl") : "empty"}${selectedSeat === index ? " selected" : ""}`}
+                        onClick={() => {
+                          if (selectedSeat === null) {
+                            setSelectedSeat(index);
+                            return;
+                          }
+                          if (selectedSeat === index) {
+                            setSelectedSeat(null);
+                            return;
+                          }
+                          setSeatStudentIds((items) => {
+                            const next = [...items];
+                            [next[selectedSeat], next[index]] = [next[index], next[selectedSeat]];
+                            return next;
+                          });
+                          setSelectedSeat(null);
+                          showToast("两个座位已交换");
+                        }}
+                      >
+                        {student ? <><b>{student.name}</b><small>{student.gender} · {averageScore(student)}分</small></> : <small>空位</small>}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="seat-legend"><span><i className="boy" />男生</span><span><i className="girl" />女生</span><span>相邻两格为同桌</span></div>
+                <button
+                  className="button primary full"
+                  type="button"
+                  onClick={() => onSaveSeatPlan({ rows: seatRows, columns: seatColumns, studentIds: seatStudentIds, updatedAt: new Date().toISOString() })}
+                >
+                  保存当前座位表
+                </button>
+              </>
+            )}
+            {!seatingStudents.length && (
+              <button className="button ghost full" type="button" onClick={() => onOpenPanel({ type: "student" })}>
+                先录入学生成绩
+              </button>
+            )}
+          </>
+        )}
+
+        {(panel.type === "album" || panel.type === "analysis") && (
           <>
             {panel.type === "analysis" && (
               <div className="summary-banner">
@@ -2366,15 +2631,11 @@ function ActionPanel({
             )}
             <div className="editor-form">
               <label>
-                <span>{panel.type === "seating" ? "座位调整方案" : panel.type === "album" ? "照片备注" : "我的补充记录"}</span>
+                <span>{panel.type === "album" ? "照片备注" : "我的补充记录"}</span>
                 <textarea
                   value={featureNote}
                   onChange={(e) => setFeatureNote(e.target.value)}
-                  placeholder={
-                    panel.type === "seating"
-                      ? "例如：第一排左右互换，林子涵调至中间..."
-                      : "输入需要保存在本机的自定义内容"
-                  }
+                  placeholder="输入需要保存在本机的自定义内容"
                 />
               </label>
             </div>
